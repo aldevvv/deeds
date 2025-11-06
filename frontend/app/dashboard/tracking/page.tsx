@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Activity, Search, FileText, Clock, CheckCircle, XCircle, Users, Calendar, Eye } from "lucide-react";
+import { Activity, Search, FileText, Clock, CheckCircle, XCircle, Users, Calendar, Eye, Download } from "lucide-react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { documentsApi } from "@/lib/documents-api";
 import { getToken } from "@/lib/auth";
+import { toast } from "sonner";
 
 interface Document {
   id: string;
@@ -132,6 +133,48 @@ export default function TrackingPage() {
     setShowModal(true);
   };
 
+  const handlePreview = async (doc: Document) => {
+    try {
+      const token = getToken();
+      if (!token) {
+        toast.error("Sesi berakhir. Silakan login kembali.");
+        return;
+      }
+
+      const blob = await documentsApi.downloadDocument(token, doc.id);
+      const url = window.URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
+      window.open(url, '_blank');
+    } catch (error: any) {
+      toast.error(error.message || "Gagal membuka preview dokumen");
+    }
+  };
+
+  const handleDownload = async (doc: Document) => {
+    try {
+      const token = getToken();
+      if (!token) {
+        toast.error("Sesi berakhir. Silakan login kembali.");
+        return;
+      }
+
+      toast.loading("Mengunduh dokumen...", { id: "download" });
+      const blob = await documentsApi.downloadDocument(token, doc.id);
+      
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${doc.title}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      
+      toast.success("Dokumen berhasil diunduh", { id: "download" });
+    } catch (error: any) {
+      toast.error(error.message || "Gagal mengunduh dokumen", { id: "download" });
+    }
+  };
+
   if (loading) {
     return (
       <DashboardLayout>
@@ -222,13 +265,29 @@ export default function TrackingPage() {
                         <span>{formatDate(doc.createdAt)}</span>
                       </div>
                     </div>
-                    <button
-                      onClick={() => openDetailModal(doc)}
-                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                      <Eye className="w-4 h-4" />
-                      Detail
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => openDetailModal(doc)}
+                        className="flex items-center gap-2 px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors"
+                      >
+                        <Eye className="w-4 h-4" />
+                        Detail
+                      </button>
+                      <button
+                        onClick={() => handlePreview(doc)}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                      >
+                        <FileText className="w-4 h-4" />
+                        Preview
+                      </button>
+                      <button
+                        onClick={() => handleDownload(doc)}
+                        className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+                      >
+                        <Download className="w-4 h-4" />
+                        Download
+                      </button>
+                    </div>
                   </div>
 
                   {/* Progress Bar */}

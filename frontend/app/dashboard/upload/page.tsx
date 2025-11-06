@@ -217,7 +217,7 @@ export default function UploadDocumentPage() {
       await documentsApi.createDocument(token, documentData);
 
       toast.success("Dokumen berhasil diupload!");
-      router.push("/dashboard/documents");
+      router.push("/dashboard/tracking");
     } catch (error: any) {
       toast.dismiss("upload");
       toast.error(error.message || "Gagal mengupload dokumen");
