@@ -163,7 +163,7 @@ export const documentsApi = {
   getViewUrl: (token: string, documentId: string): Promise<{ url: string }> =>
     fetchApi(`/documents/view/${documentId}`, token),
 
-  downloadDocument: async (token: string, documentId: string, fileName: string) => {
+  downloadDocument: async (token: string, documentId: string): Promise<Blob> => {
     const response = await fetch(`${API_URL}/documents/download/${documentId}`, {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -175,14 +175,6 @@ export const documentsApi = {
       throw new Error(error.message || 'Download failed');
     }
 
-    const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
+    return response.blob();
   },
 };
