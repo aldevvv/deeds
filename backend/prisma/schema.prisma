@@ -1,0 +1,85 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+  ADMINISTRATOR
+}
+
+enum AdminTitle {
+  SENIOR_MANAGER
+  MANAGER_SUB_BIDANG
+  ASISTEN_MANAGER
+}
+
+enum DocumentStatus {
+  DRAFT
+  PENDING
+  SIGNED
+  REJECTED
+  COMPLETED
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  fullName  String
+  role      Role     @default(USER)
+  adminTitle AdminTitle?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  documents Document[] @relation("UserDocuments")
+  signatures Signature[]
+
+  @@map("users")
+}
+
+model Document {
+  id            String         @id @default(cuid())
+  title         String
+  description   String?
+  fileUrl       String         // Original file
+  signedFileUrl String?        // Latest signed file (updated after each signature)
+  fileName      String
+  fileSize      Int
+  status        DocumentStatus @default(DRAFT)
+  createdById   String
+  createdBy     User           @relation("UserDocuments", fields: [createdById], references: [id])
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  signatures Signature[]
+
+  @@map("documents")
+}
+
+model Signature {
+  id            String   @id @default(cuid())
+  documentId    String
+  document      Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+  signedAt      DateTime?
+  status        String   @default("PENDING")
+  order         Int
+  signatureData String?  @db.Text
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("signatures")
+}
