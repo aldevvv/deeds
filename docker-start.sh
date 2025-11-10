@@ -3,25 +3,22 @@ set -e
 
 echo "🚀 Starting Docker container..."
 
-# Create backend .env file from environment variables
-echo "📝 Creating backend .env file..."
+# Check if .env files exist
 cd /app/backend
-cat > .env << EOF
-DATABASE_URL="${DATABASE_URL}"
-JWT_SECRET="${JWT_SECRET}"
-PORT=${PORT:-4000}
-SUPABASE_URL="${SUPABASE_URL}"
-SUPABASE_KEY="${SUPABASE_KEY}"
-EOF
+if [ ! -f .env ]; then
+  echo "⚠️  Warning: backend/.env not found!"
+  echo "Please make sure backend/.env exists with required variables."
+  exit 1
+fi
 
-# Create frontend .env.local file from environment variables
-echo "📝 Creating frontend .env.local file..."
 cd /app/frontend
-cat > .env.local << EOF
-NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
-BACKEND_API_URL=${BACKEND_API_URL:-http://127.0.0.1:4000}
-EOF
+if [ ! -f .env.local ]; then
+  echo "⚠️  Warning: frontend/.env.local not found!"
+  echo "Please make sure frontend/.env.local exists with NEXT_PUBLIC_API_URL."
+  exit 1
+fi
 
+echo "✅ Environment files found"
 cd /app/backend
 
 # Generate Prisma Client (required for Supabase connection)

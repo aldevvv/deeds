@@ -10,14 +10,11 @@ COPY frontend/package*.json ./
 # Install dependencies
 RUN npm install
 
-# Copy source code (including .env.local if exists)
+# Copy source code (including .env.local)
 COPY frontend/ ./
 
-# Build frontend with environment variables
-# Note: NEXT_PUBLIC_* vars need to be set at build time
-ARG NEXT_PUBLIC_API_URL
-ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
-
+# Build frontend
+# NEXT_PUBLIC_* vars will be read from .env.local during build
 RUN npm run build
 
 # Stage 2: Build Backend
@@ -51,6 +48,7 @@ COPY --from=backend-builder /app/backend/dist ./backend/dist
 COPY --from=backend-builder /app/backend/node_modules ./backend/node_modules
 COPY --from=backend-builder /app/backend/package.json ./backend/
 COPY --from=backend-builder /app/backend/prisma ./backend/prisma
+COPY --from=backend-builder /app/backend/.env ./backend/.env
 
 # Copy frontend build
 COPY --from=frontend-builder /app/frontend/.next ./frontend/.next
@@ -58,11 +56,7 @@ COPY --from=frontend-builder /app/frontend/node_modules ./frontend/node_modules
 COPY --from=frontend-builder /app/frontend/package.json ./frontend/
 COPY --from=frontend-builder /app/frontend/public ./frontend/public
 COPY --from=frontend-builder /app/frontend/next.config.ts ./frontend/
-
-# Copy .env files (will be created at runtime if not exist)
-# Backend .env
-RUN mkdir -p /app/backend
-# Frontend .env.local will be created from ENV vars
+COPY --from=frontend-builder /app/frontend/.env.local ./frontend/.env.local
 
 # Copy startup script
 COPY docker-start.sh ./
