@@ -267,26 +267,28 @@ export default function SignDocumentPage() {
     reader.readAsDataURL(fileOrBlob);
   };
 
-  const createSignatureFromDraw = () => {
+  const createSignatureFromDraw = async () => {
     if (sigCanvas.current?.isEmpty()) {
       toast.error("Silakan buat tanda tangan terlebih dahulu");
       return;
     }
     const dataURL = sigCanvas.current?.toDataURL("image/png");
-    setSignatureImage(dataURL || "");
+    const optimized = await optimizeSignatureImage(dataURL || "");
+    setSignatureImage(optimized);
     toast.success("Tanda tangan berhasil dibuat! Posisikan di PDF.");
   };
 
-  const createSignatureFromUpload = () => {
+  const createSignatureFromUpload = async () => {
     if (!uploadedImage) {
       toast.error("Silakan upload gambar terlebih dahulu");
       return;
     }
-    setSignatureImage(uploadedImage);
+    const optimized = await optimizeSignatureImage(uploadedImage);
+    setSignatureImage(optimized);
     toast.success("Tanda tangan berhasil dibuat! Posisikan di PDF.");
   };
 
-  const createSignatureFromType = () => {
+  const createSignatureFromType = async () => {
     if (!typedText.trim()) {
       toast.error("Silakan ketik nama Anda");
       return;
@@ -310,8 +312,9 @@ export default function SignDocumentPage() {
       ctx.textBaseline = "middle";
       ctx.fillText(typedText, canvas.width / 2, canvas.height / 2);
       
-      const dataURL = canvas.toDataURL("image/png");
-      setSignatureImage(dataURL);
+      const dataURL = canvas.toDataURL("image/png", 0.7);
+      const optimized = await optimizeSignatureImage(dataURL);
+      setSignatureImage(optimized);
       toast.success("Tanda tangan berhasil dibuat! Posisikan di PDF.");
     } catch (error) {
       toast.error("Gagal membuat tanda tangan");
@@ -325,28 +328,72 @@ export default function SignDocumentPage() {
     }
 
     setIsProcessing(true);
+    const loadingToast = toast.loading("Memproses tanda tangan...");
+    
     try {
       const token = getToken();
       if (!token) {
+        toast.dismiss(loadingToast);
         toast.error("Sesi berakhir. Silakan login kembali.");
         return;
       }
 
       const signatureId = documentData.mySignature.id;
 
+      // Optimize signature image before sending
+      const optimizedSignature = await optimizeSignatureImage(signatureImage);
+
       await documentsApi.signDocumentWithSignature(
         signatureId,
-        signatureImage,
+        optimizedSignature,
         signaturePosition
       );
 
+      toast.dismiss(loadingToast);
       toast.success("Dokumen berhasil ditandatangani!");
       router.push("/dashboard/admin/sign");
     } catch (error: any) {
+      toast.dismiss(loadingToast);
       toast.error(error.message || "Gagal menandatangani dokumen");
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  // Optimize signature image to reduce size
+  const optimizeSignatureImage = async (dataUrl: string): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 600;
+        const MAX_HEIGHT = 300;
+        
+        let width = img.width;
+        let height = img.height;
+        
+        // Calculate new dimensions while maintaining aspect ratio
+        if (width > MAX_WIDTH || height > MAX_HEIGHT) {
+          const ratio = Math.min(MAX_WIDTH / width, MAX_HEIGHT / height);
+          width = width * ratio;
+          height = height * ratio;
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          // Compress to 70% quality
+          resolve(canvas.toDataURL('image/png', 0.7));
+        } else {
+          resolve(dataUrl); // Fallback to original if optimization fails
+        }
+      };
+      img.onerror = () => resolve(dataUrl); // Fallback on error
+      img.src = dataUrl;
+    });
   };
 
   if (isLoading) {

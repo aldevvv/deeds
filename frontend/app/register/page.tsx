@@ -134,6 +134,7 @@ export default function RegisterPage() {
                     className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                     placeholder="nama@pln.co.id"
                     required
+                    suppressHydrationWarning
                   />
                 </div>
               </div>
@@ -249,6 +250,7 @@ export default function RegisterPage() {
                 type="submit"
                 disabled={isLoading}
                 className="w-full py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                suppressHydrationWarning
               >
                 {isLoading ? "Mendaftar..." : "Daftar Sekarang"}
               </motion.button>

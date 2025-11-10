@@ -52,15 +52,23 @@ export default function PDFSignatureViewer({
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const [resizeHandle, setResizeHandle] = useState<string>("");
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [isHovering, setIsHovering] = useState(false);
+  const [isCentered, setIsCentered] = useState(false);
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const renderTaskRef = useRef<any>(null);
   const signatureElementRef = useRef<HTMLDivElement>(null);
   
+  // Reset centered flag when signature changes
+  useEffect(() => {
+    setIsCentered(false);
+  }, [signatureImage]);
+  
   // Center signature when first loaded AND scroll into view
   useEffect(() => {
-    if (signatureImage && canvasRef.current && signaturePos.x === 0 && signaturePos.y === 0) {
+    if (signatureImage && canvasRef.current && !isCentered) {
       const canvas = canvasRef.current;
       const centerX = (canvas.width - signaturePos.width) / 2;
       const centerY = (canvas.height - signaturePos.height) / 2;
@@ -71,6 +79,7 @@ export default function PDFSignatureViewer({
       };
       setSignaturePos(centeredPos);
       onPositionChange(centeredPos);
+      setIsCentered(true);
       
       // Scroll to signature position after a short delay
       setTimeout(() => {
@@ -87,7 +96,7 @@ export default function PDFSignatureViewer({
         }
       }, 100);
     }
-  }, [signatureImage, canvasRef.current?.width, canvasRef.current?.height]);
+  }, [signatureImage, canvasRef.current?.width, canvasRef.current?.height, isCentered]);
 
   // Load PDF
   useEffect(() => {
@@ -123,7 +132,7 @@ export default function PDFSignatureViewer({
     loadPDF();
   }, [pdfUrl]);
 
-  // Render PDF page
+  // Render PDF page and signature overlay
   useEffect(() => {
     if (!pdfDoc || !canvasRef.current) return;
 
@@ -155,8 +164,8 @@ export default function PDFSignatureViewer({
         await renderTaskRef.current.promise;
         renderTaskRef.current = null;
 
-        // Draw signature AFTER PDF render is complete
-        if (signatureImage) {
+        // Draw signature AFTER PDF render is complete (only if signature exists)
+        if (signatureImage && signaturePos.page === currentPage) {
           // Pre-load image
           const img = new Image();
           img.src = signatureImage;
@@ -165,7 +174,7 @@ export default function PDFSignatureViewer({
           await new Promise<void>((resolve, reject) => {
             img.onload = () => {
               try {
-                // Draw signature image directly (no background)
+                // Draw signature image WITHOUT background (transparent)
                 context.drawImage(
                   img,
                   signaturePos.x,
@@ -174,15 +183,60 @@ export default function PDFSignatureViewer({
                   signaturePos.height
                 );
                 
-                // Draw thin blue border only
+                // Draw dashed border for positioning guide (no fill)
+                context.save();
+                context.setLineDash([5, 3]); // Dashed line pattern
                 context.strokeStyle = '#3B82F6';
                 context.lineWidth = 2;
+                context.globalAlpha = 0.7; // Semi-transparent
                 context.strokeRect(
                   signaturePos.x,
                   signaturePos.y,
                   signaturePos.width,
                   signaturePos.height
                 );
+                context.restore();
+                
+                // Draw resize handles with better visibility
+                const handleSize = 16;
+                context.fillStyle = '#3B82F6';
+                context.strokeStyle = '#FFFFFF';
+                context.lineWidth = 2;
+                
+                // Top-left
+                context.fillRect(signaturePos.x - handleSize/2, signaturePos.y - handleSize/2, handleSize, handleSize);
+                context.strokeRect(signaturePos.x - handleSize/2, signaturePos.y - handleSize/2, handleSize, handleSize);
+                // Top-right
+                context.fillRect(signaturePos.x + signaturePos.width - handleSize/2, signaturePos.y - handleSize/2, handleSize, handleSize);
+                context.strokeRect(signaturePos.x + signaturePos.width - handleSize/2, signaturePos.y - handleSize/2, handleSize, handleSize);
+                // Bottom-left
+                context.fillRect(signaturePos.x - handleSize/2, signaturePos.y + signaturePos.height - handleSize/2, handleSize, handleSize);
+                context.strokeRect(signaturePos.x - handleSize/2, signaturePos.y + signaturePos.height - handleSize/2, handleSize, handleSize);
+                // Bottom-right
+                context.fillRect(signaturePos.x + signaturePos.width - handleSize/2, signaturePos.y + signaturePos.height - handleSize/2, handleSize, handleSize);
+                context.strokeRect(signaturePos.x + signaturePos.width - handleSize/2, signaturePos.y + signaturePos.height - handleSize/2, handleSize, handleSize);
+                
+                // Draw instruction text with background for readability
+                const text = '🖱️ Geser/Resize tanda tangan';
+                context.font = '14px system-ui';
+                context.textAlign = 'center';
+                const textMetrics = context.measureText(text);
+                const textX = signaturePos.x + signaturePos.width / 2;
+                const textY = signaturePos.y - 10;
+                const padding = 4;
+                
+                // Draw text background
+                context.fillStyle = 'rgba(59, 130, 246, 0.9)';
+                context.fillRect(
+                  textX - textMetrics.width / 2 - padding,
+                  textY - 14,
+                  textMetrics.width + padding * 2,
+                  20
+                );
+                
+                // Draw text
+                context.fillStyle = '#FFFFFF';
+                context.fillText(text, textX, textY);
                 
                 resolve();
               } catch (err) {
@@ -213,78 +267,7 @@ export default function PDFSignatureViewer({
         renderTaskRef.current = null;
       }
     };
-  }, [pdfDoc, currentPage, scale]);
-
-  // Separate effect for drawing signature overlay (without re-rendering PDF)
-  useEffect(() => {
-    if (!signatureImage || !canvasRef.current) return;
-    
-    const canvas = canvasRef.current;
-    const context = canvas.getContext("2d");
-    if (!context) return;
-    
-    // Redraw PDF first (if available)
-    if (pdfDoc) {
-      const redrawSignature = async () => {
-        try {
-          const page = await pdfDoc.getPage(currentPage);
-          const viewport = page.getViewport({ scale });
-          
-          // Clear and redraw PDF
-          context.clearRect(0, 0, canvas.width, canvas.height);
-          
-          const tempRenderTask = page.render({
-            canvasContext: context,
-            viewport: viewport,
-          });
-          
-          await tempRenderTask.promise;
-          
-          // Draw signature on top
-          const img = new Image();
-          img.src = signatureImage;
-          img.onload = () => {
-            context.drawImage(
-              img,
-              signaturePos.x,
-              signaturePos.y,
-              signaturePos.width,
-              signaturePos.height
-            );
-            
-            // Draw border
-            context.strokeStyle = '#3B82F6';
-            context.lineWidth = 2;
-            context.strokeRect(
-              signaturePos.x,
-              signaturePos.y,
-              signaturePos.width,
-              signaturePos.height
-            );
-            
-            // Draw resize handles (corners)
-            const handleSize = 12;
-            context.fillStyle = '#3B82F6';
-            
-            // Top-left
-            context.fillRect(signaturePos.x - handleSize/2, signaturePos.y - handleSize/2, handleSize, handleSize);
-            // Top-right
-            context.fillRect(signaturePos.x + signaturePos.width - handleSize/2, signaturePos.y - handleSize/2, handleSize, handleSize);
-            // Bottom-left
-            context.fillRect(signaturePos.x - handleSize/2, signaturePos.y + signaturePos.height - handleSize/2, handleSize, handleSize);
-            // Bottom-right
-            context.fillRect(signaturePos.x + signaturePos.width - handleSize/2, signaturePos.y + signaturePos.height - handleSize/2, handleSize, handleSize);
-          };
-        } catch (error: any) {
-          if (error?.name !== 'RenderingCancelledException') {
-            console.error('[PDF VIEWER] Error redrawing signature:', error);
-          }
-        }
-      };
-      
-      redrawSignature();
-    }
-  }, [signatureImage, signaturePos]);
+  }, [pdfDoc, currentPage, scale, signatureImage, signaturePos]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (!canvasRef.current) return;
@@ -308,7 +291,7 @@ export default function PDFSignatureViewer({
       signaturePos.page === currentPage
     ) {
       // Check if clicked on resize handle (corners)
-      const handleSize = 12;
+      const handleSize = 16;
       const isBottomRight = 
         x >= signaturePos.x + signaturePos.width - handleSize &&
         y >= signaturePos.y + signaturePos.height - handleSize;
@@ -335,7 +318,12 @@ export default function PDFSignatureViewer({
         setIsResizing(true);
         setResizeHandle("tl");
       } else {
+        // Start dragging - store offset from signature top-left
         setIsDragging(true);
+        setDragOffset({
+          x: x - signaturePos.x,
+          y: y - signaturePos.y,
+        });
       }
     }
   };
@@ -353,9 +341,20 @@ export default function PDFSignatureViewer({
     const x = (e.clientX - rect.left) * scaleX;
     const y = (e.clientY - rect.top) * scaleY;
 
+    // Check if hovering over signature
+    const isOverSignature = 
+      x >= signaturePos.x &&
+      x <= signaturePos.x + signaturePos.width &&
+      y >= signaturePos.y &&
+      y <= signaturePos.y + signaturePos.height &&
+      signaturePos.page === currentPage;
+    
+    setIsHovering(isOverSignature);
+
     if (isDragging) {
-      const newX = x - signaturePos.width / 2;
-      const newY = y - signaturePos.height / 2;
+      // Use drag offset for smooth dragging
+      const newX = x - dragOffset.x;
+      const newY = y - dragOffset.y;
 
       const newPos = {
         ...signaturePos,
@@ -409,6 +408,7 @@ export default function PDFSignatureViewer({
     setIsDragging(false);
     setIsResizing(false);
     setResizeHandle("");
+    setDragOffset({ x: 0, y: 0 });
   };
 
   const handleZoomIn = () => setScale((s) => Math.min(s + 0.25, 3));
@@ -467,7 +467,15 @@ export default function PDFSignatureViewer({
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
             className="shadow-lg bg-white"
-            style={{ cursor: isDragging ? 'grabbing' : isResizing ? 'nwse-resize' : 'default' }}
+            style={{ 
+              cursor: isDragging 
+                ? 'grabbing' 
+                : isResizing 
+                ? 'nwse-resize' 
+                : isHovering 
+                ? 'grab' 
+                : 'default' 
+            }}
           />
         </div>
       </div>

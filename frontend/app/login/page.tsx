@@ -101,6 +101,7 @@ export default function LoginPage() {
                     className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                     placeholder="nama@pln.co.id"
                     required
+                    suppressHydrationWarning
                   />
                 </div>
               </div>
@@ -119,11 +120,13 @@ export default function LoginPage() {
                     className="w-full pl-11 pr-11 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                     placeholder="••••••••"
                     required
+                    suppressHydrationWarning
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                    suppressHydrationWarning
                   >
                     {showPassword ? (
                       <EyeOff className="w-5 h-5" />
@@ -160,6 +163,7 @@ export default function LoginPage() {
                 type="submit"
                 disabled={isLoading}
                 className="w-full py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                suppressHydrationWarning
               >
                 {isLoading ? "Masuk..." : "Masuk"}
               </motion.button>
