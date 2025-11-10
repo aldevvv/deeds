@@ -85,7 +85,7 @@ export default function HeroSection() {
             >
               {[
                 { value: "15.8K", label: "CO₂ Reduced", unit: "kg" },
-                { value: "250MB", label: "Max File Size", unit: "" },
+                { value: "100MB", label: "Max File Size", unit: "" },
                 { value: "100%", label: "Paperless", unit: "" },
               ].map((stat, index) => (
                 <div key={index} className="text-center">
