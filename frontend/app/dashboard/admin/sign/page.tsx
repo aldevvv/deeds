@@ -493,7 +493,7 @@ export default function SignDocumentsListPage() {
                     <div>
                       <p className="text-sm text-gray-600 mb-1">Ekstensi File</p>
                       <p className="text-base text-gray-900">
-                        {selectedDoc.fileType || 'N/A'}
+                        {selectedDoc.fileName?.split('.').pop()?.toUpperCase() || 'N/A'}
                       </p>
                     </div>
                   </div>
