@@ -1,0 +1,52 @@
+# ====================================
+# Docker Compose - Production VPS
+# ====================================
+# Usage: docker compose -f docker-compose.prod.yml up -d
+# This config is optimized for production deployment with Supabase
+
+version: '3.8'
+
+services:
+  # Application (Frontend + Backend)
+  # Using Supabase as external database
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+    image: deeds-app:latest
+    container_name: deeds-app
+    restart: always
+    # Only expose ports to localhost (more secure with nginx reverse proxy)
+    ports:
+      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:4000:4000"
+    environment:
+      # Backend Environment Variables (backend/.env)
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      PORT: ${PORT:-4000}
+      NODE_ENV: production
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_KEY: ${SUPABASE_KEY}
+      
+      # Frontend Environment Variables (frontend/.env.local)
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+      BACKEND_API_URL: ${BACKEND_API_URL:-http://127.0.0.1:4000}
+      FRONTEND_PORT: 3000
+      
+      # Deployment options
+      RUN_MIGRATIONS: ${RUN_MIGRATIONS:-false}  # Usually false for Supabase
+      RUN_SEED: ${RUN_SEED:-false}
+    volumes:
+      - uploads_data:/app/uploads  # If not using Supabase Storage
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  uploads_data:
+    driver: local

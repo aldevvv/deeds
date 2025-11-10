@@ -1,0 +1,54 @@
+# Dependencies
+**/node_modules
+**/npm-debug.log
+**/pnpm-lock.yaml
+**/.pnpm-store
+
+# Build outputs
+**/dist
+**/.next
+**/build
+**/out
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment files
+**/.env
+**/.env.local
+**/.env*.local
+
+# Testing
+**/coverage
+**/.nyc_output
+
+# Logs
+**/logs
+**/*.log
+
+# Documentation
+*.md
+!README.md
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Misc
+**/.cache
+**/tmp
+**/temp

@@ -1,0 +1,122 @@
+# ===================================
+# DEEDS Project - Git Ignore
+# ===================================
+
+# Environment Variables (SENSITIVE!)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+backend/.env
+frontend/.env.local
+.env.docker
+
+# Keep .example files (templates are safe)
+!.env.example
+!backend/.env.example
+!frontend/.env.example
+
+# Documentation with Sensitive Data
+# (Keep .example files safe for templates)
+SETUP.md
+QUICK_START.md
+VPS_DEPLOYMENT.md
+VPS_DEPLOYMENT_SUPABASE.md
+DOCKER_SETUP.md
+DOCKER_QUICK_START.md
+
+# Docker Production Configs (may contain sensitive data)
+# docker-compose.yml
+# docker-compose.prod.yml
+# Uncomment above if you have sensitive data in docker-compose files
+
+# Dependencies
+**/node_modules/
+**/.pnp
+**/.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+**/pnpm-lock.yaml
+**/package-lock.json
+
+# Testing
+**/coverage/
+**/.nyc_output/
+
+# Build Output
+**/dist/
+**/.next/
+**/out/
+**/build/
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# OS Files
+.DS_Store
+*.pem
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-workspace
+*.sublime-project
+
+# Temporary Files
+.temp/
+.tmp/
+*.tmp
+
+# Database
+*.sqlite
+*.db
+
+# Docker
+.dockerignore
+
+# Uploads (if using local storage)
+**/uploads/*
+!**/uploads/.gitkeep
+
+# Prisma
+**/prisma/migrations/**/*.sql
+!**/prisma/migrations/**/migration.sql
+/generated/prisma
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Vercel
+.vercel
+
+# Process IDs
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Diagnostic reports
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# Backup files
+*.bak
+*.backup
+backup_*.sql
