@@ -3,11 +3,13 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Users, Check, X, Mail, Calendar, Shield } from "lucide-react";
-import { getToken } from "@/lib/auth";
+import { getToken, getUser } from "@/lib/auth";
 import { usersApi, PendingUser } from "@/lib/users-api";
 import { useRouter } from "next/navigation";
+import DashboardLayout from "@/components/dashboard/DashboardLayout";
 
 export default function UserManagementPage() {
+  const user = getUser();
   const router = useRouter();
   const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -98,19 +100,26 @@ export default function UserManagementPage() {
     return adminTitle ? titles[adminTitle] || adminTitle : "-";
   };
 
+  if (!user) {
+    return null;
+  }
+
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Memuat data user...</p>
+      <DashboardLayout user={user}>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Memuat data user...</p>
+          </div>
         </div>
-      </div>
+      </DashboardLayout>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <DashboardLayout user={user}>
+      <div className="space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
@@ -227,6 +236,7 @@ export default function UserManagementPage() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </DashboardLayout>
   );
 }
