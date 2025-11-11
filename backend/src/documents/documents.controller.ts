@@ -67,6 +67,11 @@ export class DocumentsController {
       res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
       res.setHeader('Content-Length', blob.length.toString());
       
+      // Prevent caching to always get latest signed version
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      
       // blob is already a Buffer from R2Service
       res.end(blob);
     } catch (error) {

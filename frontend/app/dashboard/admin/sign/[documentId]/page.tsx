@@ -361,16 +361,28 @@ export default function SignDocumentPage() {
       // Optimize signature image before sending
       const optimizedSignature = await optimizeSignatureImage(signatureImage);
 
+      console.log('[SIGN] Sending signature to backend:', {
+        signatureId,
+        position: signaturePosition,
+        imageSize: optimizedSignature.length,
+      });
+
       await documentsApi.signDocumentWithSignature(
         signatureId,
         optimizedSignature,
         signaturePosition
       );
 
+      console.log('[SIGN] Signature submitted successfully');
       toast.dismiss(loadingToast);
       toast.success("Dokumen berhasil ditandatangani!");
+      
+      // Delay sebentar untuk memastikan backend selesai processing
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
       router.push("/dashboard/admin/sign");
     } catch (error: any) {
+      console.error('[SIGN] Error signing document:', error);
       toast.dismiss(loadingToast);
       toast.error(error.message || "Gagal menandatangani dokumen");
     } finally {
