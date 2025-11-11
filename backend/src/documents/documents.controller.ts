@@ -57,16 +57,24 @@ export class DocumentsController {
     @Request() req,
     @Res() res: Response,
   ) {
-    const { blob, fileName } = await this.documentsService.downloadDocument(
-      req.user.userId,
-      documentId,
-    );
+    try {
+      const { blob, fileName } = await this.documentsService.downloadDocument(
+        req.user.userId,
+        documentId,
+      );
 
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
-    
-    // blob is already a Buffer from R2Service
-    res.send(blob);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
+      res.setHeader('Content-Length', blob.length.toString());
+      
+      // blob is already a Buffer from R2Service
+      res.end(blob);
+    } catch (error) {
+      res.status(error.status || 500).json({
+        statusCode: error.status || 500,
+        message: error.message || 'Failed to preview document',
+      });
+    }
   }
 
   @Get('view/:id')
@@ -80,16 +88,24 @@ export class DocumentsController {
     @Request() req,
     @Res() res: Response,
   ) {
-    const { blob, fileName } = await this.documentsService.downloadDocument(
-      req.user.userId,
-      documentId,
-    );
+    try {
+      const { blob, fileName } = await this.documentsService.downloadDocument(
+        req.user.userId,
+        documentId,
+      );
 
-    res.setHeader('Content-Type', 'application/octet-stream');
-    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-    
-    // blob is already a Buffer from R2Service
-    res.send(blob);
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      res.setHeader('Content-Length', blob.length.toString());
+      
+      // blob is already a Buffer from R2Service
+      res.end(blob);
+    } catch (error) {
+      res.status(error.status || 500).json({
+        statusCode: error.status || 500,
+        message: error.message || 'Failed to download document',
+      });
+    }
   }
 
   @Get(':id')
