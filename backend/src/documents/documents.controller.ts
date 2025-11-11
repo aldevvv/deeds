@@ -65,9 +65,8 @@ export class DocumentsController {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
     
-    const arrayBuffer = await (blob as any).arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    res.send(buffer);
+    // blob is already a Buffer from R2Service
+    res.send(blob);
   }
 
   @Get('view/:id')
@@ -89,9 +88,8 @@ export class DocumentsController {
     res.setHeader('Content-Type', 'application/octet-stream');
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
     
-    const arrayBuffer = await (blob as any).arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    res.send(buffer);
+    // blob is already a Buffer from R2Service
+    res.send(blob);
   }
 
   @Get(':id')
