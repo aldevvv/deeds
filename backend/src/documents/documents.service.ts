@@ -534,6 +534,8 @@ export class DocumentsService {
 
       for (const prevSig of previousSignatures) {
         try {
+          if (!prevSig.signatureData) continue;
+          
           const sigData = JSON.parse(prevSig.signatureData);
           const prevPosition = sigData.position;
           const prevSignatureImage = sigData.signatureImage;
