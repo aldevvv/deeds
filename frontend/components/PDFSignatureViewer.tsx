@@ -483,50 +483,47 @@ export default function PDFSignatureViewer({
 
     // Check if clicked on signature
     const isClickedOnSignature = 
-      x >= signaturePos.x &&
-      x <= signaturePos.x + signaturePos.width &&
-      y >= signaturePos.y &&
-      y <= signaturePos.y + signaturePos.height &&
-      signaturePos.page === currentPage;
+      x >= tempSignaturePos.x &&
+      x <= tempSignaturePos.x + tempSignaturePos.width &&
+      y >= tempSignaturePos.y &&
+      y <= tempSignaturePos.y + tempSignaturePos.height &&
+      tempSignaturePos.page === currentPage;
 
-    // Check if clicked on delete button (only if signature is selected)
-    if (isSignatureSelected && signaturePos.page === currentPage) {
+    // Check if clicked on delete button (only if temp signature is selected)
+    if (isTempSignatureSelected && tempSignaturePos.page === currentPage) {
       const deleteButtonSize = 24;
-      const deleteButtonX = signaturePos.x + signaturePos.width + 5;
-      const deleteButtonY = signaturePos.y - 5;
+      const deleteButtonX = tempSignaturePos.x + tempSignaturePos.width + 5;
+      const deleteButtonY = tempSignaturePos.y - 5;
       const distToDelete = Math.sqrt(
         Math.pow(x - deleteButtonX, 2) + Math.pow(y - deleteButtonY, 2)
       );
       
       if (distToDelete <= deleteButtonSize / 2) {
-        // Clicked on delete button - clear signature
-        setIsSignatureSelected(false);
-        onPositionChange(null);
-        if (onDeleteSignature) {
-          onDeleteSignature();
-        }
+        // Clicked on delete button - clear temp signature
+        setIsTempSignatureSelected(false);
+        onSignaturePlaced(null);
         return;
       }
     }
 
     if (isClickedOnSignature) {
-      // Select signature on click
-      setIsSignatureSelected(true);
+      // Select temp signature on click
+      setIsTempSignatureSelected(true);
       
       // Check if clicked on resize handle (corners)
       const handleSize = 16;
       const isBottomRight = 
-        x >= signaturePos.x + signaturePos.width - handleSize &&
-        y >= signaturePos.y + signaturePos.height - handleSize;
+        x >= tempSignaturePos.x + tempSignaturePos.width - handleSize &&
+        y >= tempSignaturePos.y + tempSignaturePos.height - handleSize;
       const isBottomLeft = 
-        x <= signaturePos.x + handleSize &&
-        y >= signaturePos.y + signaturePos.height - handleSize;
+        x <= tempSignaturePos.x + handleSize &&
+        y >= tempSignaturePos.y + tempSignaturePos.height - handleSize;
       const isTopRight = 
-        x >= signaturePos.x + signaturePos.width - handleSize &&
-        y <= signaturePos.y + handleSize;
+        x >= tempSignaturePos.x + tempSignaturePos.width - handleSize &&
+        y <= tempSignaturePos.y + handleSize;
       const isTopLeft = 
-        x <= signaturePos.x + handleSize &&
-        y <= signaturePos.y + handleSize;
+        x <= tempSignaturePos.x + handleSize &&
+        y <= tempSignaturePos.y + handleSize;
       
       if (isBottomRight) {
         setIsResizing(true);
@@ -544,13 +541,13 @@ export default function PDFSignatureViewer({
         // Start dragging - store offset from signature top-left
         setIsDragging(true);
         setDragOffset({
-          x: x - signaturePos.x,
-          y: y - signaturePos.y,
+          x: x - tempSignaturePos.x,
+          y: y - tempSignaturePos.y,
         });
       }
     } else {
-      // Clicked outside signature - deselect
-      setIsSignatureSelected(false);
+      // Clicked outside temp signature - deselect
+      setIsTempSignatureSelected(false);
     }
   };
 
@@ -569,11 +566,11 @@ export default function PDFSignatureViewer({
 
     // Check if hovering over signature
     const isOverSignature = 
-      x >= signaturePos.x &&
-      x <= signaturePos.x + signaturePos.width &&
-      y >= signaturePos.y &&
-      y <= signaturePos.y + signaturePos.height &&
-      signaturePos.page === currentPage;
+      x >= tempSignaturePos.x &&
+      x <= tempSignaturePos.x + tempSignaturePos.width &&
+      y >= tempSignaturePos.y &&
+      y <= tempSignaturePos.y + tempSignaturePos.height &&
+      tempSignaturePos.page === currentPage;
     
     setIsHovering(isOverSignature);
 
@@ -583,41 +580,41 @@ export default function PDFSignatureViewer({
       const newY = y - dragOffset.y;
 
       const newPos = {
-        ...signaturePos,
-        x: Math.max(0, Math.min(newX, canvas.width - signaturePos.width)),
-        y: Math.max(0, Math.min(newY, canvas.height - signaturePos.height)),
+        ...tempSignaturePos,
+        x: Math.max(0, Math.min(newX, canvas.width - tempSignaturePos.width)),
+        y: Math.max(0, Math.min(newY, canvas.height - tempSignaturePos.height)),
         page: currentPage,
       };
 
-      setSignaturePos(newPos);
-      onPositionChange(newPos);
+      setTempSignaturePos(newPos);
+      onSignaturePlaced(newPos);
     } else if (isResizing) {
       const minSize = 50;
-      let newWidth = signaturePos.width;
-      let newHeight = signaturePos.height;
-      let newX = signaturePos.x;
-      let newY = signaturePos.y;
+      let newWidth = tempSignaturePos.width;
+      let newHeight = tempSignaturePos.height;
+      let newX = tempSignaturePos.x;
+      let newY = tempSignaturePos.y;
 
       if (resizeHandle === "br") {
-        newWidth = Math.max(minSize, x - signaturePos.x);
-        newHeight = Math.max(minSize, y - signaturePos.y);
+        newWidth = Math.max(minSize, x - tempSignaturePos.x);
+        newHeight = Math.max(minSize, y - tempSignaturePos.y);
       } else if (resizeHandle === "bl") {
-        newWidth = Math.max(minSize, signaturePos.x + signaturePos.width - x);
-        newHeight = Math.max(minSize, y - signaturePos.y);
+        newWidth = Math.max(minSize, tempSignaturePos.x + tempSignaturePos.width - x);
+        newHeight = Math.max(minSize, y - tempSignaturePos.y);
         newX = x;
       } else if (resizeHandle === "tr") {
-        newWidth = Math.max(minSize, x - signaturePos.x);
-        newHeight = Math.max(minSize, signaturePos.y + signaturePos.height - y);
+        newWidth = Math.max(minSize, x - tempSignaturePos.x);
+        newHeight = Math.max(minSize, tempSignaturePos.y + tempSignaturePos.height - y);
         newY = y;
       } else if (resizeHandle === "tl") {
-        newWidth = Math.max(minSize, signaturePos.x + signaturePos.width - x);
-        newHeight = Math.max(minSize, signaturePos.y + signaturePos.height - y);
+        newWidth = Math.max(minSize, tempSignaturePos.x + tempSignaturePos.width - x);
+        newHeight = Math.max(minSize, tempSignaturePos.y + tempSignaturePos.height - y);
         newX = x;
         newY = y;
       }
 
       const newPos = {
-        ...signaturePos,
+        ...tempSignaturePos,
         x: Math.max(0, Math.min(newX, canvas.width - newWidth)),
         y: Math.max(0, Math.min(newY, canvas.height - newHeight)),
         width: Math.min(newWidth, canvas.width - newX),
@@ -625,8 +622,8 @@ export default function PDFSignatureViewer({
         page: currentPage,
       };
 
-      setSignaturePos(newPos);
-      onPositionChange(newPos);
+      setTempSignaturePos(newPos);
+      onSignaturePlaced(newPos);
     }
   };
 
