@@ -468,6 +468,10 @@ export default function SignDocumentPage() {
               onPositionChange={setSignaturePosition}
               onConfirm={handleConfirmSignature}
               onCancel={() => {}}
+              onDeleteSignature={() => {
+                setSignatureImage("");
+                setSignaturePosition(null);
+              }}
             />
           </div>
 

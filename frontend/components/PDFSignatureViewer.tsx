@@ -35,9 +35,10 @@ interface PDFSignatureViewerProps {
   pdfUrl: string;
   signatureImage: string;
   existingSignatures?: ExistingSignature[];
-  onPositionChange: (position: SignaturePosition) => void;
+  onPositionChange: (position: SignaturePosition | null) => void;
   onConfirm: () => void;
   onCancel: () => void;
+  onDeleteSignature?: () => void;
 }
 
 export default function PDFSignatureViewer({
@@ -47,6 +48,7 @@ export default function PDFSignatureViewer({
   onPositionChange,
   onConfirm,
   onCancel,
+  onDeleteSignature,
 }: PDFSignatureViewerProps) {
   const [pdfDoc, setPdfDoc] = useState<any>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -397,10 +399,11 @@ export default function PDFSignatureViewer({
       
       if (distToDelete <= deleteButtonSize / 2) {
         // Clicked on delete button - clear signature
-        setSignatureImage("");
-        setSignaturePosition(null);
         setIsSignatureSelected(false);
-        onPositionChange({ x: 0, y: 0, width: 200, height: 80, page: currentPage });
+        onPositionChange(null);
+        if (onDeleteSignature) {
+          onDeleteSignature();
+        }
         return;
       }
     }
