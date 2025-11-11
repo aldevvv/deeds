@@ -485,6 +485,9 @@ export class DocumentsService {
         document: {
           include: {
             signatures: {
+              include: {
+                user: true, // Include user data for re-embedding
+              },
               orderBy: {
                 order: 'asc',
               },
@@ -532,6 +535,8 @@ export class DocumentsService {
         sig => sig.status === 'SIGNED' && sig.signatureData && sig.id !== signatureId
       );
 
+      console.log(`[MULTI-SIGNATURE] Re-embedding ${previousSignatures.length} previous signatures`);
+
       for (const prevSig of previousSignatures) {
         try {
           if (!prevSig.signatureData) continue;
@@ -539,6 +544,12 @@ export class DocumentsService {
           const sigData = JSON.parse(prevSig.signatureData);
           const prevPosition = sigData.position;
           const prevSignatureImage = sigData.signatureImage;
+          
+          console.log(`[MULTI-SIGNATURE] Previous signature ${prevSig.id}:`, {
+            hasPosition: !!prevPosition,
+            hasImage: !!prevSignatureImage,
+            page: prevPosition?.page,
+          });
           
           if (prevPosition && prevPosition.page && prevSignatureImage) {
             const prevPage = pages[prevPosition.page - 1];
@@ -565,13 +576,18 @@ export class DocumentsService {
                 width: prevPosition.width,
                 height: prevPosition.height,
               });
+              
+              console.log(`[MULTI-SIGNATURE] ✓ Successfully re-embedded signature ${prevSig.id} on page ${prevPosition.page}`);
             }
           }
         } catch (e) {
-          // Ignore errors for individual signatures
-          console.error('Error re-embedding previous signature:', e);
+          // Log error but continue with other signatures
+          console.error(`[MULTI-SIGNATURE] ✗ Error re-embedding signature ${prevSig.id}:`, e);
+          // Don't throw - continue with other signatures
         }
       }
+      
+      console.log('[MULTI-SIGNATURE] Finished re-embedding previous signatures, now adding new signature');
 
       // NOW ADD THE NEW SIGNATURE
       const page = pages[position.page - 1]; // PDF pages are 0-indexed
