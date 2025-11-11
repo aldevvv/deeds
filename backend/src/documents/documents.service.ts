@@ -522,8 +522,15 @@ export class DocumentsService {
     try {
       // Download PDF from R2 - use signedFileUrl if exists (for multiple signatures), otherwise use original fileUrl
       const fileToDownload = signature.document.signedFileUrl || signature.document.fileUrl;
+      console.log('[MULTI-SIGNATURE] Loading PDF:', {
+        documentId: signature.documentId,
+        fileUrl: fileToDownload,
+        hasSignedVersion: !!signature.document.signedFileUrl,
+      });
+      
       const pdfBuffer = await this.r2Service.downloadFile(fileToDownload);
       const pdfBytes = pdfBuffer.buffer.slice(pdfBuffer.byteOffset, pdfBuffer.byteOffset + pdfBuffer.byteLength) as ArrayBuffer;
+      console.log('[MULTI-SIGNATURE] PDF loaded, size:', pdfBytes.byteLength);
 
       // Load PDF document
       const pdfDoc = await PDFDocument.load(pdfBytes);
@@ -623,8 +630,9 @@ export class DocumentsService {
 
       // Save modified PDF
       const signedPdfBytes = await pdfDoc.save();
+      console.log('[MULTI-SIGNATURE] PDF saved with all signatures, new size:', signedPdfBytes.byteLength);
 
-      // Upload signed PDF to Supabase Storage with new name
+      // Upload signed PDF to R2 with new name
       const originalFileName = signature.document.fileName;
       const fileExt = originalFileName.split('.').pop();
       const baseName = originalFileName.replace(`.${fileExt}`, '');
@@ -641,6 +649,7 @@ export class DocumentsService {
         signedFile as any,
         'documents',
       );
+      console.log('[MULTI-SIGNATURE] Uploaded signed PDF to:', signedFilePath);
 
       // Update signature record - STORE SIGNATURE IMAGE for re-embedding later
       await this.prisma.signature.update({
@@ -664,6 +673,7 @@ export class DocumentsService {
 
       // Update document with signed PDF path (keep original fileUrl, update signedFileUrl)
       if (allSigned) {
+        console.log('[MULTI-SIGNATURE] All signatures complete, marking as COMPLETED');
         await this.prisma.document.update({
           where: { id: signature.documentId },
           data: {
@@ -672,6 +682,7 @@ export class DocumentsService {
           },
         });
       } else {
+        console.log('[MULTI-SIGNATURE] Partially signed, marking as SIGNED');
         await this.prisma.document.update({
           where: { id: signature.documentId },
           data: {
@@ -681,6 +692,7 @@ export class DocumentsService {
         });
       }
 
+      console.log('[MULTI-SIGNATURE] ✓✓✓ SUCCESS - Document signed successfully ✓✓✓');
       return { message: 'Document signed successfully with signature embedded' };
     } catch (error) {
       console.error('Error embedding signature:', error);
