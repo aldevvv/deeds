@@ -191,22 +191,6 @@ export default function LoginPage() {
             </p>
           </motion.div>
 
-          {/* Bottom Note */}
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.6, delay: 0.5 }}
-            className="text-center text-sm text-gray-500 mt-6"
-          >
-            Dengan masuk, Anda menyetujui{" "}
-            <Link href="/terms" className="text-blue-600 hover:underline">
-              Syarat & Ketentuan
-            </Link>{" "}
-            dan{" "}
-            <Link href="/privacy" className="text-blue-600 hover:underline">
-              Kebijakan Privasi
-            </Link>
-          </motion.p>
         </motion.div>
       </div>
     </div>

@@ -127,10 +127,10 @@ export class DocumentsController {
       throw new BadRequestException('Invalid file type. Only PDF, DOC, and DOCX are allowed');
     }
 
-    // Validate file size (100MB)
-    const maxSize = 100 * 1024 * 1024;
+    // Validate file size (500MB)
+    const maxSize = 500 * 1024 * 1024;
     if (file.size > maxSize) {
-      throw new BadRequestException('File too large. Maximum size is 100MB');
+      throw new BadRequestException('File too large. Maximum size is 500MB');
     }
 
     return this.documentsService.uploadFile(req.user.userId, file);

@@ -94,10 +94,10 @@ export default function UploadDocumentPage() {
       return;
     }
 
-    // Validate file size (max 100MB)
-    const maxSize = 100 * 1024 * 1024;
+    // Validate file size (max 500MB)
+    const maxSize = 500 * 1024 * 1024;
     if (selectedFile.size > maxSize) {
-      toast.error("Ukuran file maksimal 100MB");
+      toast.error("Ukuran file maksimal 500MB");
       return;
     }
 

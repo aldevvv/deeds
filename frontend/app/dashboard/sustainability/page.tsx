@@ -249,17 +249,6 @@ export default function SustainabilityPage() {
               <Download className="w-4 h-4" />
               Ekspor CSV
             </button>
-            <div className="flex items-center gap-2 ml-auto">
-              <label className="text-sm text-gray-600">Faktor Emisi:</label>
-              <input
-                type="number"
-                step="0.001"
-                value={factorPerPage}
-                onChange={(e) => setFactorPerPage(parseFloat(e.target.value) || 0.144)}
-                className="px-3 py-1 border border-gray-300 rounded-lg w-24 text-sm"
-              />
-              <span className="text-sm text-gray-500">KgCO₂e/hal</span>
-            </div>
           </div>
         </div>
 
@@ -273,16 +262,10 @@ export default function SustainabilityPage() {
                     Periode
                   </th>
                   <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Dokumen (n)
+                    Dokumen
                   </th>
                   <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Halaman (n)
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Metode
-                  </th>
-                  <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Faktor (KgCO₂e/hal)
+                    Halaman
                   </th>
                   <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     Penghematan Emisi (KgCO₂e)
@@ -295,7 +278,7 @@ export default function SustainabilityPage() {
               <tbody className="divide-y divide-gray-200">
                 {currentRecords.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan={4} className="px-6 py-12 text-center text-gray-500">
                       <Leaf className="w-12 h-12 mx-auto mb-3 text-gray-300" />
                       <p className="text-sm">Belum ada data.</p>
                     </td>
@@ -310,12 +293,6 @@ export default function SustainabilityPage() {
                       <td className="px-6 py-4 text-sm text-gray-700 text-right">
                         {formatNumber(record.halaman)}
                       </td>
-                      <td className="px-6 py-4">
-                        <span className="inline-flex px-2 py-1 text-xs font-medium bg-blue-100 text-blue-700 rounded">
-                          {record.metode}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-700 text-right">{record.faktor}</td>
                       <td className="px-6 py-4 text-sm font-semibold text-green-600 text-right">
                         {formatNumber(record.emisiDihemat)}
                       </td>
