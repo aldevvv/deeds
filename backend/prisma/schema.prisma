@@ -34,14 +34,15 @@ enum DocumentStatus {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
-  fullName  String
-  role      Role     @default(USER)
+  id         String   @id @default(cuid())
+  email      String   @unique
+  password   String
+  fullName   String
+  role       Role     @default(USER)
   adminTitle AdminTitle?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  isApproved Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   documents Document[] @relation("UserDocuments")
   signatures Signature[]

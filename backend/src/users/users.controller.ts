@@ -1,61 +1,49 @@
 import {
   Controller,
   Get,
-  Patch,
-  Delete,
+  Post,
   Param,
-  Body,
   UseGuards,
   HttpCode,
   HttpStatus,
+  ForbiddenException,
+  Request,
 } from '@nestjs/common';
-import { IsEnum, IsOptional } from 'class-validator';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
-import { Role, AdminTitle } from '@prisma/client';
-
-class UpdateUserRoleDto {
-  @IsEnum(Role)
-  role: Role;
-
-  @IsEnum(AdminTitle)
-  @IsOptional()
-  adminTitle?: AdminTitle;
-}
+import { Role } from '@prisma/client';
 
 @Controller('users')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard)
 export class UsersController {
   constructor(private usersService: UsersService) {}
 
-  @Get()
-  @Roles(Role.ADMINISTRATOR)
-  async getAllUsers() {
-    return this.usersService.getAllUsers();
+  @Get('pending')
+  async getPendingUsers(@Request() req) {
+    // Only ADMINISTRATOR can view pending users
+    if (req.user.role !== Role.ADMINISTRATOR) {
+      throw new ForbiddenException('Only administrators can view pending users');
+    }
+    return this.usersService.getPendingUsers();
   }
 
-  @Get(':id')
-  @Roles(Role.ADMINISTRATOR)
-  async getUserById(@Param('id') id: string) {
-    return this.usersService.getUserById(id);
-  }
-
-  @Patch(':id/role')
-  @Roles(Role.ADMINISTRATOR)
+  @Post(':userId/approve')
   @HttpCode(HttpStatus.OK)
-  async updateUserRole(
-    @Param('id') id: string,
-    @Body() dto: UpdateUserRoleDto,
-  ) {
-    return this.usersService.updateUserRole(id, dto.role, dto.adminTitle);
+  async approveUser(@Request() req, @Param('userId') userId: string) {
+    // Only ADMINISTRATOR can approve users
+    if (req.user.role !== Role.ADMINISTRATOR) {
+      throw new ForbiddenException('Only administrators can approve users');
+    }
+    return this.usersService.approveUser(userId);
   }
 
-  @Delete(':id')
-  @Roles(Role.ADMINISTRATOR)
+  @Post(':userId/reject')
   @HttpCode(HttpStatus.OK)
-  async deleteUser(@Param('id') id: string) {
-    return this.usersService.deleteUser(id);
+  async rejectUser(@Request() req, @Param('userId') userId: string) {
+    // Only ADMINISTRATOR can reject users
+    if (req.user.role !== Role.ADMINISTRATOR) {
+      throw new ForbiddenException('Only administrators can reject users');
+    }
+    return this.usersService.rejectUser(userId);
   }
 }

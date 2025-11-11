@@ -50,6 +50,7 @@ export class AuthService {
 
     const hashedPassword = this.hashPassword(dto.password);
 
+    // Create user with isApproved = false (pending approval)
     const user = await this.prisma.user.create({
       data: {
         email: dto.email,
@@ -57,6 +58,7 @@ export class AuthService {
         fullName: dto.fullName,
         role: dto.role || Role.USER,
         adminTitle: dto.adminTitle,
+        isApproved: false, // Requires admin approval
       },
     });
 
@@ -69,6 +71,7 @@ export class AuthService {
       role: user.role,
       adminTitle: user.adminTitle ?? undefined,
       accessToken,
+      isApproved: user.isApproved,
     };
   }
 
@@ -87,6 +90,11 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    // Check if user is approved
+    if (!user.isApproved) {
+      throw new UnauthorizedException('Your account is pending approval. Please wait for administrator approval.');
+    }
+
     const accessToken = this.generateToken(user.id, user.email, user.role);
 
     return {
@@ -96,6 +104,7 @@ export class AuthService {
       role: user.role,
       adminTitle: user.adminTitle ?? undefined,
       accessToken,
+      isApproved: user.isApproved,
     };
   }
 

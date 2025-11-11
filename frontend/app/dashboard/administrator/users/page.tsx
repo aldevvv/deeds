@@ -1,56 +1,32 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import {
-  Users as UsersIcon,
-  Edit,
-  Trash2,
-  Shield,
-  X,
-  Save,
-} from "lucide-react";
-import DashboardLayout from "@/components/dashboard/DashboardLayout";
+import { Users, Check, X, Mail, Calendar, Shield } from "lucide-react";
 import { getToken } from "@/lib/auth";
-import { usersApi, User } from "@/lib/users-api";
+import { usersApi, PendingUser } from "@/lib/users-api";
+import { useRouter } from "next/navigation";
 
-const roleLabels: Record<string, string> = {
-  USER: "User",
-  ADMIN: "Admin",
-  ADMINISTRATOR: "Administrator",
-};
-
-const adminTitleLabels: Record<string, string> = {
-  SENIOR_MANAGER: "Senior Manager",
-  MANAGER_SUB_BIDANG: "Manager Sub Bidang",
-  ASISTEN_MANAGER: "Asisten Manager",
-};
-
-export default function ManageUsersPage() {
-  const [users, setUsers] = useState<User[]>([]);
+export default function UserManagementPage() {
+  const router = useRouter();
+  const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [editForm, setEditForm] = useState<{
-    role: 'USER' | 'ADMIN' | 'ADMINISTRATOR';
-    adminTitle?: 'SENIOR_MANAGER' | 'MANAGER_SUB_BIDANG' | 'ASISTEN_MANAGER';
-  }>({ role: 'USER' });
+  const [processingUserId, setProcessingUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    loadUsers();
+    fetchPendingUsers();
   }, []);
 
-  const loadUsers = async () => {
-    setIsLoading(true);
+  const fetchPendingUsers = async () => {
     try {
       const token = getToken();
       if (!token) {
-        toast.error("Sesi berakhir. Silakan login kembali.");
+        router.push("/login");
         return;
       }
 
-      const data = await usersApi.getAllUsers(token);
-      setUsers(data);
+      const users = await usersApi.getPendingUsers(token);
+      setPendingUsers(users);
     } catch (error: any) {
       toast.error(error.message || "Gagal memuat data user");
     } finally {
@@ -58,177 +34,189 @@ export default function ManageUsersPage() {
     }
   };
 
-  const handleEdit = (user: User) => {
-    setEditingUser(user);
-    setEditForm({
-      role: user.role,
-      adminTitle: user.adminTitle,
-    });
-  };
+  const handleApprove = async (userId: string, fullName: string) => {
+    if (!confirm(`Setujui akun untuk ${fullName}?`)) return;
 
-  const handleCancelEdit = () => {
-    setEditingUser(null);
-    setEditForm({ role: 'USER' });
-  };
-
-  const handleSaveEdit = async () => {
-    if (!editingUser) return;
-
+    setProcessingUserId(userId);
     try {
       const token = getToken();
       if (!token) {
-        toast.error("Sesi berakhir. Silakan login kembali.");
+        router.push("/login");
         return;
       }
 
-      if ((editForm.role === 'ADMIN' || editForm.role === 'ADMINISTRATOR') && !editForm.adminTitle) {
-        toast.error("Role Admin/Administrator memerlukan Admin Title");
-        return;
-      }
-
-      await usersApi.updateUserRole(token, editingUser.id, editForm);
-      toast.success("Role user berhasil diperbarui");
-      setEditingUser(null);
-      loadUsers();
+      await usersApi.approveUser(token, userId);
+      toast.success(`Akun ${fullName} berhasil disetujui!`);
+      
+      // Remove from list
+      setPendingUsers(pendingUsers.filter(u => u.id !== userId));
     } catch (error: any) {
-      toast.error(error.message || "Gagal memperbarui role user");
+      toast.error(error.message || "Gagal menyetujui user");
+    } finally {
+      setProcessingUserId(null);
     }
   };
 
-  const handleDelete = async (userId: string, userName: string) => {
-    if (!confirm(`Apakah Anda yakin ingin menghapus user ${userName}?`)) {
-      return;
-    }
+  const handleReject = async (userId: string, fullName: string) {
+    if (!confirm(`Tolak dan hapus akun ${fullName}? Tindakan ini tidak dapat dibatalkan.`)) return;
 
+    setProcessingUserId(userId);
     try {
       const token = getToken();
       if (!token) {
-        toast.error("Sesi berakhir. Silakan login kembali.");
+        router.push("/login");
         return;
       }
 
-      await usersApi.deleteUser(token, userId);
-      toast.success("User berhasil dihapus");
-      loadUsers();
+      await usersApi.rejectUser(token, userId);
+      toast.success(`Akun ${fullName} berhasil ditolak dan dihapus`);
+      
+      // Remove from list
+      setPendingUsers(pendingUsers.filter(u => u.id !== userId));
     } catch (error: any) {
-      toast.error(error.message || "Gagal menghapus user");
+      toast.error(error.message || "Gagal menolak user");
+    } finally {
+      setProcessingUserId(null);
     }
   };
 
-  const getRoleBadgeColor = (role: string) => {
-    const colors: Record<string, string> = {
-      USER: "bg-gray-100 text-gray-700",
-      ADMIN: "bg-blue-100 text-blue-700",
-      ADMINISTRATOR: "bg-purple-100 text-purple-700",
+  const getRoleBadge = (role: string) => {
+    const colors = {
+      USER: "bg-blue-100 text-blue-800",
+      ADMIN: "bg-purple-100 text-purple-800",
+      ADMINISTRATOR: "bg-red-100 text-red-800",
     };
-    return colors[role] || colors.USER;
+    return colors[role as keyof typeof colors] || "bg-gray-100 text-gray-800";
+  };
+
+  const getAdminTitleText = (adminTitle?: string) => {
+    const titles: Record<string, string> = {
+      SENIOR_MANAGER: "Senior Manager",
+      MANAGER_SUB_BIDANG: "Manager Sub Bidang",
+      ASISTEN_MANAGER: "Asisten Manager",
+    };
+    return adminTitle ? titles[adminTitle] || adminTitle : "-";
   };
 
   if (isLoading) {
     return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-gray-600">Memuat data...</p>
-          </div>
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Memuat data user...</p>
         </div>
-      </DashboardLayout>
+      </div>
     );
   }
 
   return (
-    <DashboardLayout>
-      <div className="p-8 bg-white min-h-screen">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-8 mb-8 text-white shadow-lg">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="p-4 bg-white/20 backdrop-blur-sm rounded-xl">
-                <UsersIcon className="w-10 h-10" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold mb-2">Kelola User & Role</h1>
-                <p className="text-blue-100">Atur role dan admin title untuk setiap user</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 px-6 py-3 bg-white/20 backdrop-blur-sm rounded-xl">
-              <UsersIcon className="w-6 h-6" />
-              <span className="text-xl font-bold">{users.length}</span>
-              <span className="text-sm text-blue-100">Total Users</span>
-            </div>
+    <div className="space-y-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+          <Users className="w-8 h-8 text-blue-600" />
+          Manajemen User
+        </h1>
+        <p className="text-gray-600 mt-2">
+          Kelola persetujuan akun user yang mendaftar
+        </p>
+      </div>
+
+      {/* Stats */}
+      <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-xl p-6 text-white shadow-lg">
+        <div className="flex items-center gap-4">
+          <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center">
+            <Users className="w-8 h-8" />
+          </div>
+          <div>
+            <p className="text-orange-100 text-sm">User Menunggu Persetujuan</p>
+            <p className="text-4xl font-bold">{pendingUsers.length}</p>
           </div>
         </div>
+      </div>
 
-        {/* Users Table */}
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      {/* Users List */}
+      {pendingUsers.length === 0 ? (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+          <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            Tidak Ada User Pending
+          </h3>
+          <p className="text-gray-600">
+            Semua user yang mendaftar sudah diproses
+          </p>
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     User
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Email
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     Role
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     Admin Title
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    Tanggal Daftar
+                  </th>
+                  <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     Aksi
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {users.map((user) => (
+                {pendingUsers.map((user) => (
                   <tr key={user.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-800 rounded-full flex items-center justify-center">
-                          <span className="text-white font-semibold text-sm">
-                            {user.fullName.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)}
-                          </span>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">{user.fullName}</p>
-                          <p className="text-xs text-gray-500">ID: {user.id.slice(0, 8)}...</p>
-                        </div>
+                    <td className="px-6 py-4">
+                      <div>
+                        <p className="font-semibold text-gray-900">{user.fullName}</p>
+                        <p className="text-sm text-gray-500 flex items-center gap-1">
+                          <Mail className="w-3 h-3" />
+                          {user.email}
+                        </p>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <p className="text-sm text-gray-900">{user.email}</p>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${getRoleBadgeColor(user.role)}`}>
-                        {roleLabels[user.role]}
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${getRoleBadge(user.role)}`}>
+                        <Shield className="w-3 h-3" />
+                        {user.role}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {user.adminTitle ? (
-                        <span className="text-sm text-gray-700">
-                          {adminTitleLabels[user.adminTitle]}
-                        </span>
-                      ) : (
-                        <span className="text-sm text-gray-400">-</span>
-                      )}
+                    <td className="px-6 py-4">
+                      <p className="text-sm text-gray-700">{getAdminTitleText(user.adminTitle)}</p>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right">
+                    <td className="px-6 py-4">
+                      <p className="text-sm text-gray-700 flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />
+                        {new Date(user.createdAt).toLocaleDateString('id-ID', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric'
+                        })}
+                      </p>
+                    </td>
+                    <td className="px-6 py-4">
                       <div className="flex items-center justify-end gap-2">
                         <button
-                          onClick={() => handleEdit(user)}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          onClick={() => handleApprove(user.id, user.fullName)}
+                          disabled={processingUserId === user.id}
+                          className="flex items-center gap-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
                         >
-                          <Edit className="w-4 h-4" />
+                          <Check className="w-4 h-4" />
+                          Setujui
                         </button>
                         <button
-                          onClick={() => handleDelete(user.id, user.fullName)}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          onClick={() => handleReject(user.id, user.fullName)}
+                          disabled={processingUserId === user.id}
+                          className="flex items-center gap-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <X className="w-4 h-4" />
+                          Tolak
                         </button>
                       </div>
                     </td>
@@ -238,104 +226,7 @@ export default function ManageUsersPage() {
             </table>
           </div>
         </div>
-      </div>
-
-      {/* Edit Modal */}
-      <AnimatePresence>
-        {editingUser && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-            onClick={handleCancelEdit}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-xl shadow-xl max-w-md w-full p-6"
-            >
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold text-gray-900">Edit Role User</h3>
-                <button
-                  onClick={handleCancelEdit}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  <X className="w-5 h-5 text-gray-500" />
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <p className="text-sm text-gray-600 mb-2">User</p>
-                  <p className="text-base font-medium text-gray-900">{editingUser.fullName}</p>
-                  <p className="text-sm text-gray-500">{editingUser.email}</p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Role
-                  </label>
-                  <select
-                    value={editForm.role}
-                    onChange={(e) => {
-                      const newRole = e.target.value as 'USER' | 'ADMIN' | 'ADMINISTRATOR';
-                      setEditForm({
-                        role: newRole,
-                        adminTitle: newRole === 'USER' ? undefined : editForm.adminTitle,
-                      });
-                    }}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="USER">User</option>
-                    <option value="ADMIN">Admin</option>
-                    <option value="ADMINISTRATOR">Administrator</option>
-                  </select>
-                </div>
-
-                {(editForm.role === 'ADMIN' || editForm.role === 'ADMINISTRATOR') && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Admin Title <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={editForm.adminTitle || ''}
-                      onChange={(e) => setEditForm({
-                        ...editForm,
-                        adminTitle: e.target.value as any,
-                      })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="">Pilih Admin Title</option>
-                      <option value="SENIOR_MANAGER">Senior Manager</option>
-                      <option value="MANAGER_SUB_BIDANG">Manager Sub Bidang</option>
-                      <option value="ASISTEN_MANAGER">Asisten Manager</option>
-                    </select>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex gap-3 mt-6">
-                <button
-                  onClick={handleCancelEdit}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Batal
-                </button>
-                <button
-                  onClick={handleSaveEdit}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
-                >
-                  <Save className="w-4 h-4" />
-                  Simpan
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </DashboardLayout>
+      )}
+    </div>
   );
 }

@@ -44,16 +44,19 @@ export default function RegisterPage() {
         fullName: formData.fullName,
       });
 
+      // Store token even if not approved (for potential future use)
       localStorage.setItem("accessToken", response.accessToken);
       localStorage.setItem("user", JSON.stringify({
         id: response.id,
         email: response.email,
         fullName: response.fullName,
         role: response.role,
+        isApproved: response.isApproved,
       }));
 
-      toast.success("Pendaftaran berhasil! Selamat datang di DEEDS.");
-      router.push("/dashboard");
+      // Redirect to pending page (user needs approval)
+      toast.success("Pendaftaran berhasil! Menunggu persetujuan administrator.");
+      router.push("/pending");
     } catch (err) {
       if (err instanceof ApiError) {
         toast.error(err.message);

@@ -7,6 +7,7 @@ export class AuthResponseDto {
   role: Role;
   adminTitle?: AdminTitle;
   accessToken: string;
+  isApproved: boolean;
 }
 
 export class UserResponseDto {
@@ -15,6 +16,7 @@ export class UserResponseDto {
   fullName: string;
   role: Role;
   adminTitle?: AdminTitle;
+  isApproved: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

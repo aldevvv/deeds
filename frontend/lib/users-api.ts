@@ -1,13 +1,14 @@
+import { getToken } from './auth';
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
-export interface User {
+export interface PendingUser {
   id: string;
   email: string;
   fullName: string;
-  role: 'USER' | 'ADMIN' | 'ADMINISTRATOR';
-  adminTitle?: 'SENIOR_MANAGER' | 'MANAGER_SUB_BIDANG' | 'ASISTEN_MANAGER';
+  role: string;
+  adminTitle?: string;
   createdAt: string;
-  updatedAt: string;
 }
 
 async function fetchApi(endpoint: string, token: string, options?: RequestInit) {
@@ -31,27 +32,16 @@ async function fetchApi(endpoint: string, token: string, options?: RequestInit) 
 }
 
 export const usersApi = {
-  getAllUsers: (token: string): Promise<User[]> =>
-    fetchApi('/users', token),
+  getPendingUsers: (token: string): Promise<PendingUser[]> =>
+    fetchApi('/users/pending', token),
 
-  getUserById: (token: string, userId: string): Promise<User> =>
-    fetchApi(`/users/${userId}`, token),
-
-  updateUserRole: (
-    token: string,
-    userId: string,
-    data: {
-      role: 'USER' | 'ADMIN' | 'ADMINISTRATOR';
-      adminTitle?: 'SENIOR_MANAGER' | 'MANAGER_SUB_BIDANG' | 'ASISTEN_MANAGER';
-    }
-  ): Promise<User> =>
-    fetchApi(`/users/${userId}/role`, token, {
-      method: 'PATCH',
-      body: JSON.stringify(data),
+  approveUser: (token: string, userId: string): Promise<{ message: string }> =>
+    fetchApi(`/users/${userId}/approve`, token, {
+      method: 'POST',
     }),
 
-  deleteUser: (token: string, userId: string): Promise<{ message: string }> =>
-    fetchApi(`/users/${userId}`, token, {
-      method: 'DELETE',
+  rejectUser: (token: string, userId: string): Promise<{ message: string }> =>
+    fetchApi(`/users/${userId}/reject`, token, {
+      method: 'POST',
     }),
 };

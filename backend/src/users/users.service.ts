@@ -1,17 +1,15 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Role, AdminTitle } from '@prisma/client';
 
 @Injectable()
 export class UsersService {
   constructor(private prisma: PrismaService) {}
 
-  async getAllUsers() {
+  async getPendingUsers() {
     const users = await this.prisma.user.findMany({
+      where: {
+        isApproved: false,
+      },
       select: {
         id: true,
         email: true,
@@ -19,7 +17,6 @@ export class UsersService {
         role: true,
         adminTitle: true,
         createdAt: true,
-        updatedAt: true,
       },
       orderBy: {
         createdAt: 'desc',
@@ -29,32 +26,7 @@ export class UsersService {
     return users;
   }
 
-  async getUserById(userId: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        email: true,
-        fullName: true,
-        role: true,
-        adminTitle: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    });
-
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    return user;
-  }
-
-  async updateUserRole(
-    userId: string,
-    role: Role,
-    adminTitle?: AdminTitle,
-  ) {
+  async approveUser(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
     });
@@ -63,35 +35,17 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    if ((role === Role.ADMIN || role === Role.ADMINISTRATOR) && !adminTitle) {
-      throw new BadRequestException('Admin role requires an admin title');
-    }
-
-    if (role === Role.USER && adminTitle) {
-      throw new BadRequestException('User role cannot have admin title');
-    }
-
-    const updatedUser = await this.prisma.user.update({
+    await this.prisma.user.update({
       where: { id: userId },
       data: {
-        role,
-        adminTitle: role === Role.USER ? null : adminTitle,
-      },
-      select: {
-        id: true,
-        email: true,
-        fullName: true,
-        role: true,
-        adminTitle: true,
-        createdAt: true,
-        updatedAt: true,
+        isApproved: true,
       },
     });
 
-    return updatedUser;
+    return { message: 'User approved successfully' };
   }
 
-  async deleteUser(userId: string) {
+  async rejectUser(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
     });
@@ -100,10 +54,11 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
+    // Delete user from database (reject = delete)
     await this.prisma.user.delete({
       where: { id: userId },
     });
 
-    return { message: 'User deleted successfully' };
+    return { message: 'User rejected and removed from system' };
   }
 }
