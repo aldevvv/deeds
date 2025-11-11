@@ -125,13 +125,23 @@ export const documentsApi = {
     const token = getToken();
     if (!token) throw new Error('No authentication token');
     
-    return fetchApi(`/documents/sign/${signatureId}/with-signature`, token, {
+    console.log('[API] Calling signDocumentWithSignature:', {
+      signatureId,
+      position,
+      imageLength: signatureImage.length,
+      endpoint: `/documents/sign/${signatureId}/with-signature`,
+    });
+    
+    const result = await fetchApi(`/documents/sign/${signatureId}/with-signature`, token, {
       method: 'POST',
       body: JSON.stringify({
         signatureImage: signatureImage,
         position,
       }),
     });
+    
+    console.log('[API] signDocumentWithSignature response:', result);
+    return result;
   },
 
   rejectDocument: (token: string, signatureId: string, reason?: string): Promise<{ message: string }> =>

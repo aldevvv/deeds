@@ -340,7 +340,15 @@ export default function SignDocumentPage() {
   };
 
   const handleConfirmSignature = async () => {
+    console.log('[SIGN] handleConfirmSignature called:', {
+      hasDocumentData: !!documentData,
+      hasSignatureImage: !!signatureImage,
+      hasSignaturePosition: !!signaturePosition,
+      signaturePosition,
+    });
+    
     if (!documentData || !signatureImage || !signaturePosition) {
+      console.error('[SIGN] Missing required data!');
       toast.error("Silakan posisikan tanda tangan di PDF");
       return;
     }
@@ -375,12 +383,13 @@ export default function SignDocumentPage() {
 
       console.log('[SIGN] Signature submitted successfully');
       toast.dismiss(loadingToast);
-      toast.success("Dokumen berhasil ditandatangani!");
+      toast.success("Tanda tangan berhasil disimpan!", { duration: 3000 });
       
       // Delay sebentar untuk memastikan backend selesai processing
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 1500));
       
-      router.push("/dashboard/admin/sign");
+      // Reload page untuk bisa tambah signature lagi
+      window.location.reload();
     } catch (error: any) {
       console.error('[SIGN] Error signing document:', error);
       toast.dismiss(loadingToast);
@@ -749,14 +758,31 @@ export default function SignDocumentPage() {
             </div>
 
             {/* Confirm Button at Bottom */}
-            <div className="p-6 border-t border-gray-200">
+            <div className="p-6 border-t border-gray-200 space-y-3">
+              {signatureImage && signaturePosition && (
+                <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <p className="text-sm text-green-800 font-medium">
+                    ✓ Tanda tangan siap di halaman {signaturePosition.page}
+                  </p>
+                  <p className="text-xs text-green-600 mt-1">
+                    Klik tombol di bawah untuk menyimpan
+                  </p>
+                </div>
+              )}
+              
               <button
                 onClick={handleConfirmSignature}
                 disabled={!signatureImage || !signaturePosition || isProcessing}
-                className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+                className="w-full px-6 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg text-lg"
               >
-                {isProcessing ? "Memproses..." : "Konfirmasi Tanda Tangan"}
+                {isProcessing ? "Menyimpan..." : "💾 Simpan Tanda Tangan Ini"}
               </button>
+              
+              {signatureImage && signaturePosition && (
+                <p className="text-xs text-gray-500 text-center">
+                  Setelah disimpan, Anda bisa menambah tanda tangan lagi di halaman lain
+                </p>
+              )}
             </div>
           </div>
         </div>

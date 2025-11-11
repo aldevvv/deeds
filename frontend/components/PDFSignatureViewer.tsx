@@ -39,6 +39,7 @@ interface PDFSignatureViewerProps {
   onConfirm: () => void;
   onCancel: () => void;
   onDeleteSignature?: () => void;
+  autoConfirmOnPlace?: boolean; // Auto-confirm after placing signature
 }
 
 export default function PDFSignatureViewer({
@@ -49,6 +50,7 @@ export default function PDFSignatureViewer({
   onConfirm,
   onCancel,
   onDeleteSignature,
+  autoConfirmOnPlace = false,
 }: PDFSignatureViewerProps) {
   const [pdfDoc, setPdfDoc] = useState<any>(null);
   const [currentPage, setCurrentPage] = useState(1);
