@@ -39,10 +39,9 @@ interface PlacedSignature {
 interface PDFSignatureViewerProps {
   pdfUrl: string;
   tempSignatureImage: string; // Current signature being placed
-  placedSignatures: PlacedSignature[]; // All confirmed signatures
+  placedSignatures: PlacedSignature[]; // All confirmed signatures (not used in auto-submit approach)
   existingSignatures?: ExistingSignature[];
   onSignaturePlaced: (position: SignaturePosition | null) => void;
-  onRemoveSignature: (index: number) => void;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -53,7 +52,6 @@ export default function PDFSignatureViewer({
   placedSignatures,
   existingSignatures = [],
   onSignaturePlaced,
-  onRemoveSignature,
   onConfirm,
   onCancel,
 }: PDFSignatureViewerProps) {
