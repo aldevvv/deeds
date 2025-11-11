@@ -517,8 +517,9 @@ export class DocumentsService {
     }
 
     try {
-      // Download original PDF from R2
-      const pdfBuffer = await this.r2Service.downloadFile(signature.document.fileUrl);
+      // Download PDF from R2 - use signedFileUrl if exists (for multiple signatures), otherwise use original fileUrl
+      const fileToDownload = signature.document.signedFileUrl || signature.document.fileUrl;
+      const pdfBuffer = await this.r2Service.downloadFile(fileToDownload);
       const pdfBytes = pdfBuffer.buffer.slice(pdfBuffer.byteOffset, pdfBuffer.byteOffset + pdfBuffer.byteLength) as ArrayBuffer;
 
       // Load PDF document

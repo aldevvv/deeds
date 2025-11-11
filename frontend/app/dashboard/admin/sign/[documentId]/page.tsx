@@ -276,6 +276,12 @@ export default function SignDocumentPage() {
     const dataURL = sigCanvas.current?.toDataURL("image/png");
     const optimized = await optimizeSignatureImage(dataURL || "");
     setSignatureImage(optimized);
+    
+    // Clear canvas after creating signature
+    if (sigCanvas.current) {
+      sigCanvas.current.clear();
+    }
+    
     toast.success("Tanda tangan berhasil dibuat! Posisikan di PDF.");
   };
 
@@ -286,6 +292,13 @@ export default function SignDocumentPage() {
     }
     const optimized = await optimizeSignatureImage(uploadedImage);
     setSignatureImage(optimized);
+    
+    // Clear uploaded image after creating signature
+    setUploadedImage("");
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+    
     toast.success("Tanda tangan berhasil dibuat! Posisikan di PDF.");
   };
 
@@ -316,6 +329,10 @@ export default function SignDocumentPage() {
       const dataURL = canvas.toDataURL("image/png", 0.7);
       const optimized = await optimizeSignatureImage(dataURL);
       setSignatureImage(optimized);
+      
+      // Clear typed text after creating signature
+      setTypedText("");
+      
       toast.success("Tanda tangan berhasil dibuat! Posisikan di PDF.");
     } catch (error) {
       toast.error("Gagal membuat tanda tangan");

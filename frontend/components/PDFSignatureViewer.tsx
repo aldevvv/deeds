@@ -67,18 +67,20 @@ export default function PDFSignatureViewer({
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [isHovering, setIsHovering] = useState(false);
   const [isCentered, setIsCentered] = useState(false);
+  const [isSignatureSelected, setIsSignatureSelected] = useState(false);
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const renderTaskRef = useRef<any>(null);
   const signatureElementRef = useRef<HTMLDivElement>(null);
   
-  // Reset centered flag when signature changes
+  // Reset centered flag and selection when signature changes
   useEffect(() => {
     setIsCentered(false);
+    setIsSignatureSelected(true); // Auto-select new signature
   }, [signatureImage]);
   
-  // Center signature when first loaded AND scroll into view
+  // Center signature when first loaded AND scroll into view - use CURRENT PAGE
   useEffect(() => {
     if (signatureImage && canvasRef.current && !isCentered) {
       const canvas = canvasRef.current;
@@ -88,6 +90,7 @@ export default function PDFSignatureViewer({
         ...signaturePos,
         x: centerX,
         y: centerY,
+        page: currentPage, // USE CURRENT PAGE, not default 1
       };
       setSignaturePos(centeredPos);
       onPositionChange(centeredPos);
@@ -108,7 +111,7 @@ export default function PDFSignatureViewer({
         }
       }, 100);
     }
-  }, [signatureImage, canvasRef.current?.width, canvasRef.current?.height, isCentered]);
+  }, [signatureImage, canvasRef.current?.width, canvasRef.current?.height, isCentered, currentPage]);
 
   // Load PDF
   useEffect(() => {
@@ -245,38 +248,69 @@ export default function PDFSignatureViewer({
                   signaturePos.height
                 );
                 
-                // Draw dashed border for positioning guide (no fill)
-                context.save();
-                context.setLineDash([5, 3]); // Dashed line pattern
-                context.strokeStyle = '#3B82F6';
-                context.lineWidth = 2;
-                context.globalAlpha = 0.7; // Semi-transparent
-                context.strokeRect(
-                  signaturePos.x,
-                  signaturePos.y,
-                  signaturePos.width,
-                  signaturePos.height
-                );
-                context.restore();
+                // Only draw controls if signature is selected
+                if (isSignatureSelected) {
+                  // Draw dashed border for positioning guide (no fill)
+                  context.save();
+                  context.setLineDash([5, 3]); // Dashed line pattern
+                  context.strokeStyle = '#3B82F6';
+                  context.lineWidth = 2;
+                  context.globalAlpha = 0.7; // Semi-transparent
+                  context.strokeRect(
+                    signaturePos.x,
+                    signaturePos.y,
+                    signaturePos.width,
+                    signaturePos.height
+                  );
+                  context.restore();
+                }
                 
-                // Draw resize handles with better visibility
-                const handleSize = 16;
-                context.fillStyle = '#3B82F6';
-                context.strokeStyle = '#FFFFFF';
-                context.lineWidth = 2;
-                
-                // Top-left
-                context.fillRect(signaturePos.x - handleSize/2, signaturePos.y - handleSize/2, handleSize, handleSize);
-                context.strokeRect(signaturePos.x - handleSize/2, signaturePos.y - handleSize/2, handleSize, handleSize);
-                // Top-right
-                context.fillRect(signaturePos.x + signaturePos.width - handleSize/2, signaturePos.y - handleSize/2, handleSize, handleSize);
-                context.strokeRect(signaturePos.x + signaturePos.width - handleSize/2, signaturePos.y - handleSize/2, handleSize, handleSize);
-                // Bottom-left
-                context.fillRect(signaturePos.x - handleSize/2, signaturePos.y + signaturePos.height - handleSize/2, handleSize, handleSize);
-                context.strokeRect(signaturePos.x - handleSize/2, signaturePos.y + signaturePos.height - handleSize/2, handleSize, handleSize);
-                // Bottom-right
-                context.fillRect(signaturePos.x + signaturePos.width - handleSize/2, signaturePos.y + signaturePos.height - handleSize/2, handleSize, handleSize);
-                context.strokeRect(signaturePos.x + signaturePos.width - handleSize/2, signaturePos.y + signaturePos.height - handleSize/2, handleSize, handleSize);
+                // Only draw resize handles if selected
+                if (isSignatureSelected) {
+                  const handleSize = 16;
+                  context.fillStyle = '#3B82F6';
+                  context.strokeStyle = '#FFFFFF';
+                  context.lineWidth = 2;
+                  
+                  // Top-left
+                  context.fillRect(signaturePos.x - handleSize/2, signaturePos.y - handleSize/2, handleSize, handleSize);
+                  context.strokeRect(signaturePos.x - handleSize/2, signaturePos.y - handleSize/2, handleSize, handleSize);
+                  // Top-right
+                  context.fillRect(signaturePos.x + signaturePos.width - handleSize/2, signaturePos.y - handleSize/2, handleSize, handleSize);
+                  context.strokeRect(signaturePos.x + signaturePos.width - handleSize/2, signaturePos.y - handleSize/2, handleSize, handleSize);
+                  // Bottom-left
+                  context.fillRect(signaturePos.x - handleSize/2, signaturePos.y + signaturePos.height - handleSize/2, handleSize, handleSize);
+                  context.strokeRect(signaturePos.x - handleSize/2, signaturePos.y + signaturePos.height - handleSize/2, handleSize, handleSize);
+                  // Bottom-right
+                  context.fillRect(signaturePos.x + signaturePos.width - handleSize/2, signaturePos.y + signaturePos.height - handleSize/2, handleSize, handleSize);
+                  context.strokeRect(signaturePos.x + signaturePos.width - handleSize/2, signaturePos.y + signaturePos.height - handleSize/2, handleSize, handleSize);
+                  
+                  // Draw DELETE button (X) at top-right corner
+                  const deleteButtonSize = 24;
+                  const deleteButtonX = signaturePos.x + signaturePos.width + 5;
+                  const deleteButtonY = signaturePos.y - 5;
+                  
+                  // Red circle background
+                  context.beginPath();
+                  context.arc(deleteButtonX, deleteButtonY, deleteButtonSize/2, 0, 2 * Math.PI);
+                  context.fillStyle = '#EF4444';
+                  context.fill();
+                  context.strokeStyle = '#FFFFFF';
+                  context.lineWidth = 2;
+                  context.stroke();
+                  
+                  // White X
+                  context.strokeStyle = '#FFFFFF';
+                  context.lineWidth = 3;
+                  context.lineCap = 'round';
+                  const xOffset = 6;
+                  context.beginPath();
+                  context.moveTo(deleteButtonX - xOffset, deleteButtonY - xOffset);
+                  context.lineTo(deleteButtonX + xOffset, deleteButtonY + xOffset);
+                  context.moveTo(deleteButtonX + xOffset, deleteButtonY - xOffset);
+                  context.lineTo(deleteButtonX - xOffset, deleteButtonY + xOffset);
+                  context.stroke();
+                }
                 
                 // Draw instruction text with background for readability
                 const text = '🖱️ Geser/Resize tanda tangan';
@@ -329,7 +363,7 @@ export default function PDFSignatureViewer({
         renderTaskRef.current = null;
       }
     };
-  }, [pdfDoc, currentPage, scale, signatureImage, signaturePos, existingSignatures]);
+  }, [pdfDoc, currentPage, scale, signatureImage, signaturePos, existingSignatures, isSignatureSelected]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (!canvasRef.current) return;
@@ -345,13 +379,36 @@ export default function PDFSignatureViewer({
     const y = (e.clientY - rect.top) * scaleY;
 
     // Check if clicked on signature
-    if (
+    const isClickedOnSignature = 
       x >= signaturePos.x &&
       x <= signaturePos.x + signaturePos.width &&
       y >= signaturePos.y &&
       y <= signaturePos.y + signaturePos.height &&
-      signaturePos.page === currentPage
-    ) {
+      signaturePos.page === currentPage;
+
+    // Check if clicked on delete button (only if signature is selected)
+    if (isSignatureSelected && signaturePos.page === currentPage) {
+      const deleteButtonSize = 24;
+      const deleteButtonX = signaturePos.x + signaturePos.width + 5;
+      const deleteButtonY = signaturePos.y - 5;
+      const distToDelete = Math.sqrt(
+        Math.pow(x - deleteButtonX, 2) + Math.pow(y - deleteButtonY, 2)
+      );
+      
+      if (distToDelete <= deleteButtonSize / 2) {
+        // Clicked on delete button - clear signature
+        setSignatureImage("");
+        setSignaturePosition(null);
+        setIsSignatureSelected(false);
+        onPositionChange({ x: 0, y: 0, width: 200, height: 80, page: currentPage });
+        return;
+      }
+    }
+
+    if (isClickedOnSignature) {
+      // Select signature on click
+      setIsSignatureSelected(true);
+      
       // Check if clicked on resize handle (corners)
       const handleSize = 16;
       const isBottomRight = 
@@ -387,6 +444,9 @@ export default function PDFSignatureViewer({
           y: y - signaturePos.y,
         });
       }
+    } else {
+      // Clicked outside signature - deselect
+      setIsSignatureSelected(false);
     }
   };
 
