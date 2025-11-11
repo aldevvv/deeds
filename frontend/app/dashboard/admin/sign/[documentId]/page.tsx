@@ -141,9 +141,6 @@ export default function SignDocumentPage() {
       // Clear temp signature & reset canvas
       setTempSignatureImage("");
       setCurrentSignaturePosition(null);
-      setSignatureTab("draw");
-      setUploadedSignature("");
-      setTypedSignature("");
       if (sigCanvas.current) {
         sigCanvas.current.clear();
       }
