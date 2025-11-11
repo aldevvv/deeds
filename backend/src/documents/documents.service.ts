@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { SupabaseService } from '../common/supabase/supabase.service';
+import { R2Service } from '../common/r2/r2.service';
 import { DocumentStatus } from '@prisma/client';
 import { PDFDocument } from 'pdf-lib';
 
@@ -17,7 +17,7 @@ interface CreateDocumentDto {
 export class DocumentsService {
   constructor(
     private prisma: PrismaService,
-    private supabaseService: SupabaseService,
+    private r2Service: R2Service,
   ) {}
 
   async getUserDocuments(userId: string, status?: DocumentStatus) {
@@ -183,7 +183,7 @@ export class DocumentsService {
   }
 
   async uploadFile(userId: string, file: any) {
-    const { path } = await this.supabaseService.uploadFile(file, 'documents');
+    const { path } = await this.r2Service.uploadFile(file, 'documents');
 
     return {
       filePath: path,
@@ -517,9 +517,9 @@ export class DocumentsService {
     }
 
     try {
-      // Download original PDF from Supabase
-      const pdfBlob = await this.supabaseService.downloadFile(signature.document.fileUrl);
-      const pdfBytes = await pdfBlob.arrayBuffer();
+      // Download original PDF from R2
+      const pdfBuffer = await this.r2Service.downloadFile(signature.document.fileUrl);
+      const pdfBytes = pdfBuffer.buffer.slice(pdfBuffer.byteOffset, pdfBuffer.byteOffset + pdfBuffer.byteLength);
 
       // Load PDF document
       const pdfDoc = await PDFDocument.load(pdfBytes);
@@ -571,7 +571,7 @@ export class DocumentsService {
         size: signedPdfBytes.byteLength,
       };
 
-      const { path: signedFilePath } = await this.supabaseService.uploadFile(
+      const { path: signedFilePath } = await this.r2Service.uploadFile(
         signedFile as any,
         'documents',
       );
@@ -642,7 +642,8 @@ export class DocumentsService {
       throw new ForbiddenException('You do not have access to this document');
     }
 
-    const signedUrl = await this.supabaseService.getSignedUrl(document.fileUrl, 3600);
+    // Generate signed URL valid for 1 hour
+    const signedUrl = await this.r2Service.getSignedUrl(document.fileUrl, 3600);
 
     return { url: signedUrl };
   }
@@ -670,10 +671,10 @@ export class DocumentsService {
 
     // Use signed file if available, otherwise use original file
     const fileUrl = document.signedFileUrl || document.fileUrl;
-    const blob = await this.supabaseService.downloadFile(fileUrl);
+    const buffer = await this.r2Service.downloadFile(fileUrl);
 
     return {
-      blob,
+      blob: buffer,
       fileName: document.fileName,
     };
   }

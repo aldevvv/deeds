@@ -6,7 +6,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { DocumentsModule } from './documents/documents.module';
-import { SupabaseModule } from './common/supabase/supabase.module';
+import { R2Module } from './common/r2/r2.module';
 
 @Module({
   imports: [
@@ -14,7 +14,7 @@ import { SupabaseModule } from './common/supabase/supabase.module';
       isGlobal: true,
     }),
     PrismaModule,
-    SupabaseModule,
+    R2Module,
     AuthModule,
     UsersModule,
     DocumentsModule,
