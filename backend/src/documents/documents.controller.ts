@@ -65,7 +65,8 @@ export class DocumentsController {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
     
-    const buffer = Buffer.from(await blob.arrayBuffer());
+    const arrayBuffer = await (blob as any).arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
     res.send(buffer);
   }
 
@@ -88,7 +89,8 @@ export class DocumentsController {
     res.setHeader('Content-Type', 'application/octet-stream');
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
     
-    const buffer = Buffer.from(await blob.arrayBuffer());
+    const arrayBuffer = await (blob as any).arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
     res.send(buffer);
   }
 
