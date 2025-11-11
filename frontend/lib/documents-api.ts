@@ -163,6 +163,33 @@ export const documentsApi = {
   getViewUrl: (token: string, documentId: string): Promise<{ url: string }> =>
     fetchApi(`/documents/view/${documentId}`, token),
 
+  previewDocument: async (token: string, documentId: string): Promise<Blob> => {
+    console.log('API: Previewing document', documentId);
+    const response = await fetch(`${API_URL}/documents/preview/${documentId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    console.log('API: Preview response status', response.status, response.statusText);
+    console.log('API: Preview response headers', Object.fromEntries(response.headers.entries()));
+
+    if (!response.ok) {
+      let errorMessage = 'Preview failed';
+      try {
+        const error = await response.json();
+        errorMessage = error.message || errorMessage;
+      } catch (e) {
+        errorMessage = `Preview failed with status ${response.status}`;
+      }
+      throw new Error(errorMessage);
+    }
+
+    const blob = await response.blob();
+    console.log('API: Preview blob size', blob.size, 'type', blob.type);
+    return blob;
+  },
+
   downloadDocument: async (token: string, documentId: string): Promise<Blob> => {
     console.log('API: Downloading document', documentId);
     const response = await fetch(`${API_URL}/documents/download/${documentId}`, {

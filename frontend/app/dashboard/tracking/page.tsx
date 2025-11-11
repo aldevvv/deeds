@@ -141,10 +141,10 @@ export default function TrackingPage() {
         return;
       }
 
-      console.log('Preview: Starting download for doc', doc.id);
+      console.log('Preview: Starting preview for doc', doc.id);
       toast.loading("Memuat preview...", { id: "preview" });
       
-      const blob = await documentsApi.downloadDocument(token, doc.id);
+      const blob = await documentsApi.previewDocument(token, doc.id);
       console.log('Preview: Blob received', blob);
       
       const url = window.URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));

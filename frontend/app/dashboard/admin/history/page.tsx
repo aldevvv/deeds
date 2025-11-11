@@ -238,20 +238,7 @@ export default function SignatureHistoryPage() {
                                 return;
                               }
 
-                              const response = await fetch(
-                                `${process.env.NEXT_PUBLIC_API_URL}/documents/download/${doc.id}`,
-                                {
-                                  headers: {
-                                    Authorization: `Bearer ${token}`,
-                                  },
-                                }
-                              );
-
-                              if (!response.ok) {
-                                throw new Error('Preview failed');
-                              }
-
-                              const blob = await response.blob();
+                              const blob = await documentsApi.previewDocument(token, doc.id);
                               const pdfBlob = new Blob([blob], { type: 'application/pdf' });
                               const url = window.URL.createObjectURL(pdfBlob);
                               
