@@ -40,6 +40,7 @@ export default function SignDocumentPage() {
   const [typedText, setTypedText] = useState("");
   const [uploadedImage, setUploadedImage] = useState<string>("");
   const [removeBackground, setRemoveBackground] = useState(false);
+  const [signatureColor, setSignatureColor] = useState<string>("#000000"); // Default black
   const sigCanvas = useRef<SignatureCanvas>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -306,7 +307,7 @@ export default function SignDocumentPage() {
       }
       
       // IMPORTANT: No background fill - keep transparent!
-      ctx.fillStyle = "black";
+      ctx.fillStyle = signatureColor;
       ctx.font = "48px 'Brush Script MT', cursive";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
@@ -504,9 +505,47 @@ export default function SignDocumentPage() {
               {/* Draw Method */}
               {signatureMethod === "draw" && (
                 <div className="space-y-4">
+                  {/* Color Picker */}
+                  <div className="flex items-center gap-3">
+                    <label className="text-sm font-medium text-gray-700">Warna:</label>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setSignatureColor("#000000")}
+                        className={`w-10 h-10 rounded-lg border-2 transition-all ${
+                          signatureColor === "#000000" 
+                            ? "border-blue-600 ring-2 ring-blue-200" 
+                            : "border-gray-300 hover:border-gray-400"
+                        }`}
+                        style={{ backgroundColor: "#000000" }}
+                        title="Hitam"
+                      />
+                      <button
+                        onClick={() => setSignatureColor("#0000FF")}
+                        className={`w-10 h-10 rounded-lg border-2 transition-all ${
+                          signatureColor === "#0000FF" 
+                            ? "border-blue-600 ring-2 ring-blue-200" 
+                            : "border-gray-300 hover:border-gray-400"
+                        }`}
+                        style={{ backgroundColor: "#0000FF" }}
+                        title="Biru"
+                      />
+                      <button
+                        onClick={() => setSignatureColor("#008000")}
+                        className={`w-10 h-10 rounded-lg border-2 transition-all ${
+                          signatureColor === "#008000" 
+                            ? "border-blue-600 ring-2 ring-blue-200" 
+                            : "border-gray-300 hover:border-gray-400"
+                        }`}
+                        style={{ backgroundColor: "#008000" }}
+                        title="Hijau"
+                      />
+                    </div>
+                  </div>
+                  
                   <div className="border-2 border-dashed border-gray-300 rounded-lg overflow-hidden bg-white">
                     <SignatureCanvas
                       ref={sigCanvas}
+                      penColor={signatureColor}
                       canvasProps={{
                         className: "w-full h-48 bg-white",
                       }}
@@ -596,6 +635,43 @@ export default function SignDocumentPage() {
               {/* Type Method */}
               {signatureMethod === "type" && (
                 <div className="space-y-4">
+                  {/* Color Picker */}
+                  <div className="flex items-center gap-3">
+                    <label className="text-sm font-medium text-gray-700">Warna:</label>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setSignatureColor("#000000")}
+                        className={`w-10 h-10 rounded-lg border-2 transition-all ${
+                          signatureColor === "#000000" 
+                            ? "border-blue-600 ring-2 ring-blue-200" 
+                            : "border-gray-300 hover:border-gray-400"
+                        }`}
+                        style={{ backgroundColor: "#000000" }}
+                        title="Hitam"
+                      />
+                      <button
+                        onClick={() => setSignatureColor("#0000FF")}
+                        className={`w-10 h-10 rounded-lg border-2 transition-all ${
+                          signatureColor === "#0000FF" 
+                            ? "border-blue-600 ring-2 ring-blue-200" 
+                            : "border-gray-300 hover:border-gray-400"
+                        }`}
+                        style={{ backgroundColor: "#0000FF" }}
+                        title="Biru"
+                      />
+                      <button
+                        onClick={() => setSignatureColor("#008000")}
+                        className={`w-10 h-10 rounded-lg border-2 transition-all ${
+                          signatureColor === "#008000" 
+                            ? "border-blue-600 ring-2 ring-blue-200" 
+                            : "border-gray-300 hover:border-gray-400"
+                        }`}
+                        style={{ backgroundColor: "#008000" }}
+                        title="Hijau"
+                      />
+                    </div>
+                  </div>
+                  
                   <input
                     type="text"
                     value={typedText}
@@ -607,7 +683,10 @@ export default function SignDocumentPage() {
                     <div className="border border-gray-200 rounded-lg p-8 bg-white text-center">
                       <div
                         className="text-4xl"
-                        style={{ fontFamily: "'Brush Script MT', cursive" }}
+                        style={{ 
+                          fontFamily: "'Brush Script MT', cursive",
+                          color: signatureColor
+                        }}
                       >
                         {typedText}
                       </div>
