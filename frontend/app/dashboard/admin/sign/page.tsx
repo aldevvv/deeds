@@ -45,6 +45,13 @@ export default function SignDocumentsListPage() {
 
   useEffect(() => {
     fetchDocuments();
+    
+    // Auto-refresh every 5 seconds to get latest data
+    const interval = setInterval(() => {
+      fetchDocuments();
+    }, 5000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   const fetchDocuments = async () => {

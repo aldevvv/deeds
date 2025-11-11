@@ -31,33 +31,39 @@ interface ExistingSignature {
   order: number;
 }
 
+interface PlacedSignature {
+  image: string;
+  position: { x: number; y: number; width: number; height: number; page: number };
+}
+
 interface PDFSignatureViewerProps {
   pdfUrl: string;
-  signatureImage: string;
+  tempSignatureImage: string; // Current signature being placed
+  placedSignatures: PlacedSignature[]; // All confirmed signatures
   existingSignatures?: ExistingSignature[];
-  onPositionChange: (position: SignaturePosition | null) => void;
+  onSignaturePlaced: (position: SignaturePosition | null) => void;
+  onRemoveSignature: (index: number) => void;
   onConfirm: () => void;
   onCancel: () => void;
-  onDeleteSignature?: () => void;
-  autoConfirmOnPlace?: boolean; // Auto-confirm after placing signature
 }
 
 export default function PDFSignatureViewer({
   pdfUrl,
-  signatureImage,
+  tempSignatureImage,
+  placedSignatures,
   existingSignatures = [],
-  onPositionChange,
+  onSignaturePlaced,
+  onRemoveSignature,
   onConfirm,
   onCancel,
-  onDeleteSignature,
-  autoConfirmOnPlace = false,
 }: PDFSignatureViewerProps) {
   const [pdfDoc, setPdfDoc] = useState<any>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [numPages, setNumPages] = useState(0);
   const [scale, setScale] = useState(1.0);
   
-  const [signaturePos, setSignaturePos] = useState<SignaturePosition>({
+  // Temp signature position (being dragged/resized)
+  const [tempSignaturePos, setTempSignaturePos] = useState<SignaturePosition>({
     x: 0,
     y: 0,
     width: 200,
@@ -71,41 +77,43 @@ export default function PDFSignatureViewer({
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [isHovering, setIsHovering] = useState(false);
   const [isCentered, setIsCentered] = useState(false);
-  const [isSignatureSelected, setIsSignatureSelected] = useState(false);
+  const [isTempSignatureSelected, setIsTempSignatureSelected] = useState(false);
+  const [selectedPlacedIndex, setSelectedPlacedIndex] = useState<number | null>(null);
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const renderTaskRef = useRef<any>(null);
   const signatureElementRef = useRef<HTMLDivElement>(null);
   
-  // Reset centered flag and selection when signature changes
+  // Reset centered flag and selection when temp signature changes
   useEffect(() => {
     setIsCentered(false);
-    setIsSignatureSelected(true); // Auto-select new signature
-  }, [signatureImage]);
+    setIsTempSignatureSelected(true); // Auto-select new temp signature
+    setSelectedPlacedIndex(null); // Deselect placed signatures
+  }, [tempSignatureImage]);
   
-  // Center signature when first loaded AND scroll into view - use CURRENT PAGE
+  // Center temp signature when first loaded AND scroll into view - use CURRENT PAGE
   useEffect(() => {
-    if (signatureImage && canvasRef.current && !isCentered) {
+    if (tempSignatureImage && canvasRef.current && !isCentered) {
       const canvas = canvasRef.current;
-      const centerX = (canvas.width - signaturePos.width) / 2;
-      const centerY = (canvas.height - signaturePos.height) / 2;
+      const centerX = (canvas.width - tempSignaturePos.width) / 2;
+      const centerY = (canvas.height - tempSignaturePos.height) / 2;
       const centeredPos = {
-        ...signaturePos,
+        ...tempSignaturePos,
         x: centerX,
         y: centerY,
         page: currentPage, // USE CURRENT PAGE, not default 1
       };
-      setSignaturePos(centeredPos);
-      onPositionChange(centeredPos);
+      setTempSignaturePos(centeredPos);
+      onSignaturePlaced(centeredPos);
       setIsCentered(true);
       
       // Scroll to signature position after a short delay
       setTimeout(() => {
         if (containerRef.current && canvasRef.current) {
           const container = containerRef.current;
-          const scrollToY = centerY - (container.clientHeight / 2) + (signaturePos.height / 2);
-          const scrollToX = centerX - (container.clientWidth / 2) + (signaturePos.width / 2);
+          const scrollToY = centerY - (container.clientHeight / 2) + (tempSignaturePos.height / 2);
+          const scrollToX = centerX - (container.clientWidth / 2) + (tempSignaturePos.width / 2);
           
           container.scrollTo({
             top: Math.max(0, scrollToY),
@@ -115,7 +123,7 @@ export default function PDFSignatureViewer({
         }
       }, 100);
     }
-  }, [signatureImage, canvasRef.current?.width, canvasRef.current?.height, isCentered, currentPage]);
+  }, [tempSignatureImage, canvasRef.current?.width, canvasRef.current?.height, isCentered, currentPage]);
 
   // Load PDF
   useEffect(() => {
@@ -191,7 +199,7 @@ export default function PDFSignatureViewer({
         await renderTaskRef.current.promise;
         renderTaskRef.current = null;
 
-        // Draw existing signatures first (already signed)
+        // 1. Draw existing signatures first (already signed - from backend)
         if (existingSignatures && existingSignatures.length > 0) {
           for (const existingSig of existingSignatures) {
             if (existingSig.signedAt && existingSig.signatureData) {
@@ -241,66 +249,134 @@ export default function PDFSignatureViewer({
           }
         }
 
-        // Draw NEW signature AFTER PDF render is complete (only if signature exists)
-        if (signatureImage && signaturePos.page === currentPage) {
+        // 2. Draw PLACED signatures (confirmed in this session but not yet submitted)
+        if (placedSignatures && placedSignatures.length > 0) {
+          for (let i = 0; i < placedSignatures.length; i++) {
+            const placedSig = placedSignatures[i];
+            
+            // Only draw if on current page
+            if (placedSig.position.page === currentPage) {
+              try {
+                const img = new Image();
+                img.src = placedSig.image;
+                
+                await new Promise<void>((resolve) => {
+                  img.onload = () => {
+                    // Draw the signature image
+                    context.drawImage(
+                      img,
+                      placedSig.position.x,
+                      placedSig.position.y,
+                      placedSig.position.width,
+                      placedSig.position.height
+                    );
+                    
+                    // Draw border if this signature is selected
+                    if (selectedPlacedIndex === i) {
+                      context.save();
+                      context.setLineDash([5, 3]);
+                      context.strokeStyle = '#10B981'; // Green for placed
+                      context.lineWidth = 2;
+                      context.strokeRect(
+                        placedSig.position.x,
+                        placedSig.position.y,
+                        placedSig.position.width,
+                        placedSig.position.height
+                      );
+                      context.restore();
+                    }
+                    
+                    // Draw label
+                    context.fillStyle = '#10B981';
+                    context.font = 'bold 11px system-ui';
+                    const labelText = `Tanda tangan ${i + 1}`;
+                    const labelY = placedSig.position.y - 5;
+                    
+                    // Background for label
+                    const textMetrics = context.measureText(labelText);
+                    context.fillStyle = 'rgba(16, 185, 129, 0.9)';
+                    context.fillRect(
+                      placedSig.position.x,
+                      labelY - 14,
+                      textMetrics.width + 8,
+                      18
+                    );
+                    
+                    // Label text
+                    context.fillStyle = '#FFFFFF';
+                    context.fillText(labelText, placedSig.position.x + 4, labelY);
+                    
+                    resolve();
+                  };
+                  img.onerror = () => resolve();
+                });
+              } catch (e) {
+                // Ignore errors
+              }
+            }
+          }
+        }
+
+        // 3. Draw TEMP signature (being dragged/resized - not yet placed)
+        if (tempSignatureImage && tempSignaturePos.page === currentPage) {
           // Pre-load image
           const img = new Image();
-          img.src = signatureImage;
+          img.src = tempSignatureImage;
           
           // Wait for image to load before drawing
           await new Promise<void>((resolve, reject) => {
             img.onload = () => {
               try {
-                // Draw signature image WITHOUT background (transparent)
+                // Draw temp signature image WITHOUT background (transparent)
                 context.drawImage(
                   img,
-                  signaturePos.x,
-                  signaturePos.y,
-                  signaturePos.width,
-                  signaturePos.height
+                  tempSignaturePos.x,
+                  tempSignaturePos.y,
+                  tempSignaturePos.width,
+                  tempSignaturePos.height
                 );
                 
-                // Only draw controls if signature is selected
-                if (isSignatureSelected) {
+                // Only draw controls if temp signature is selected
+                if (isTempSignatureSelected) {
                   // Draw dashed border for positioning guide (no fill)
                   context.save();
                   context.setLineDash([5, 3]); // Dashed line pattern
-                  context.strokeStyle = '#3B82F6';
+                  context.strokeStyle = '#F59E0B'; // Orange for temp
                   context.lineWidth = 2;
                   context.globalAlpha = 0.7; // Semi-transparent
                   context.strokeRect(
-                    signaturePos.x,
-                    signaturePos.y,
-                    signaturePos.width,
-                    signaturePos.height
+                    tempSignaturePos.x,
+                    tempSignaturePos.y,
+                    tempSignaturePos.width,
+                    tempSignaturePos.height
                   );
                   context.restore();
                 }
                 
-                // Only draw resize handles if selected
-                if (isSignatureSelected) {
+                // Only draw resize handles if temp signature selected
+                if (isTempSignatureSelected) {
                   const handleSize = 16;
-                  context.fillStyle = '#3B82F6';
+                  context.fillStyle = '#F59E0B'; // Orange
                   context.strokeStyle = '#FFFFFF';
                   context.lineWidth = 2;
                   
                   // Top-left
-                  context.fillRect(signaturePos.x - handleSize/2, signaturePos.y - handleSize/2, handleSize, handleSize);
-                  context.strokeRect(signaturePos.x - handleSize/2, signaturePos.y - handleSize/2, handleSize, handleSize);
+                  context.fillRect(tempSignaturePos.x - handleSize/2, tempSignaturePos.y - handleSize/2, handleSize, handleSize);
+                  context.strokeRect(tempSignaturePos.x - handleSize/2, tempSignaturePos.y - handleSize/2, handleSize, handleSize);
                   // Top-right
-                  context.fillRect(signaturePos.x + signaturePos.width - handleSize/2, signaturePos.y - handleSize/2, handleSize, handleSize);
-                  context.strokeRect(signaturePos.x + signaturePos.width - handleSize/2, signaturePos.y - handleSize/2, handleSize, handleSize);
+                  context.fillRect(tempSignaturePos.x + tempSignaturePos.width - handleSize/2, tempSignaturePos.y - handleSize/2, handleSize, handleSize);
+                  context.strokeRect(tempSignaturePos.x + tempSignaturePos.width - handleSize/2, tempSignaturePos.y - handleSize/2, handleSize, handleSize);
                   // Bottom-left
-                  context.fillRect(signaturePos.x - handleSize/2, signaturePos.y + signaturePos.height - handleSize/2, handleSize, handleSize);
-                  context.strokeRect(signaturePos.x - handleSize/2, signaturePos.y + signaturePos.height - handleSize/2, handleSize, handleSize);
+                  context.fillRect(tempSignaturePos.x - handleSize/2, tempSignaturePos.y + tempSignaturePos.height - handleSize/2, handleSize, handleSize);
+                  context.strokeRect(tempSignaturePos.x - handleSize/2, tempSignaturePos.y + tempSignaturePos.height - handleSize/2, handleSize, handleSize);
                   // Bottom-right
-                  context.fillRect(signaturePos.x + signaturePos.width - handleSize/2, signaturePos.y + signaturePos.height - handleSize/2, handleSize, handleSize);
-                  context.strokeRect(signaturePos.x + signaturePos.width - handleSize/2, signaturePos.y + signaturePos.height - handleSize/2, handleSize, handleSize);
+                  context.fillRect(tempSignaturePos.x + tempSignaturePos.width - handleSize/2, tempSignaturePos.y + tempSignaturePos.height - handleSize/2, handleSize, handleSize);
+                  context.strokeRect(tempSignaturePos.x + tempSignaturePos.width - handleSize/2, tempSignaturePos.y + tempSignaturePos.height - handleSize/2, handleSize, handleSize);
                   
                   // Draw DELETE button (X) at top-right corner
                   const deleteButtonSize = 24;
-                  const deleteButtonX = signaturePos.x + signaturePos.width + 5;
-                  const deleteButtonY = signaturePos.y - 5;
+                  const deleteButtonX = tempSignaturePos.x + tempSignaturePos.width + 5;
+                  const deleteButtonY = tempSignaturePos.y - 5;
                   
                   // Red circle background
                   context.beginPath();
@@ -325,12 +401,12 @@ export default function PDFSignatureViewer({
                 }
                 
                 // Draw instruction text with background for readability
-                const text = '🖱️ Geser/Resize tanda tangan';
+                const text = '🖱️ Drag untuk tempatkan';
                 context.font = '14px system-ui';
                 context.textAlign = 'center';
                 const textMetrics = context.measureText(text);
-                const textX = signaturePos.x + signaturePos.width / 2;
-                const textY = signaturePos.y - 10;
+                const textX = tempSignaturePos.x + tempSignaturePos.width / 2;
+                const textY = tempSignaturePos.y - 35;
                 const padding = 4;
                 
                 // Draw text background
@@ -390,7 +466,7 @@ export default function PDFSignatureViewer({
         renderTaskRef.current = null;
       }
     };
-  }, [pdfDoc, currentPage, scale, signatureImage, signaturePos, existingSignatures, isSignatureSelected]);
+  }, [pdfDoc, currentPage, scale, tempSignatureImage, tempSignaturePos, placedSignatures, existingSignatures, isTempSignatureSelected, selectedPlacedIndex]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (!canvasRef.current) return;
