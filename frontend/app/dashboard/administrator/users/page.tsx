@@ -57,7 +57,7 @@ export default function UserManagementPage() {
     }
   };
 
-  const handleReject = async (userId: string, fullName: string) {
+  const handleReject = async (userId: string, fullName: string) => {
     if (!confirm(`Tolak dan hapus akun ${fullName}? Tindakan ini tidak dapat dibatalkan.`)) return;
 
     setProcessingUserId(userId);
