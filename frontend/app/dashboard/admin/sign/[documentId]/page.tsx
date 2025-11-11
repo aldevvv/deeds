@@ -380,7 +380,7 @@ export default function SignDocumentPage() {
     }
   };
 
-  // BATCH SUBMIT - Save all placed signatures at once
+  // BATCH SUBMIT - Save all placed signatures at once (1 request)
   const handleConfirmSignature = async () => {
     if (!documentData || placedSignatures.length === 0) {
       toast.error("Silakan tempatkan minimal 1 tanda tangan");
@@ -393,17 +393,13 @@ export default function SignDocumentPage() {
     try {
       const signatureId = documentData.mySignature.id;
 
-      // Submit ALL signatures sequentially
-      for (let i = 0; i < placedSignatures.length; i++) {
-        const sig = placedSignatures[i];
-        toast.loading(`Menyimpan tanda tangan ${i + 1}/${placedSignatures.length}...`, { id: loadingToast });
+      // Submit ALL signatures in ONE request
+      const signatures = placedSignatures.map(sig => ({
+        signatureImage: sig.image,
+        position: sig.position
+      }));
 
-        await documentsApi.signDocumentWithSignature(
-          signatureId,
-          sig.image,
-          sig.position
-        );
-      }
+      await documentsApi.signDocumentWithMultipleSignatures(signatureId, signatures);
 
       toast.success(`${placedSignatures.length} tanda tangan berhasil disimpan!`, { 
         id: loadingToast,

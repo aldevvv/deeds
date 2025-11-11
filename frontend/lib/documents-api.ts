@@ -144,6 +144,28 @@ export const documentsApi = {
     return result;
   },
 
+  signDocumentWithMultipleSignatures: async (
+    signatureId: string,
+    signatures: Array<{ signatureImage: string; position: { x: number; y: number; width: number; height: number; page: number } }>
+  ): Promise<{ message: string }> => {
+    const token = getToken();
+    if (!token) throw new Error('No authentication token');
+    
+    console.log('[API] Calling signDocumentWithMultipleSignatures:', {
+      signatureId,
+      count: signatures.length,
+      endpoint: `/documents/sign/${signatureId}/with-multiple-signatures`,
+    });
+    
+    const result = await fetchApi(`/documents/sign/${signatureId}/with-multiple-signatures`, token, {
+      method: 'POST',
+      body: JSON.stringify({ signatures }),
+    });
+    
+    console.log('[API] signDocumentWithMultipleSignatures response:', result);
+    return result;
+  },
+
   rejectDocument: (token: string, signatureId: string, reason?: string): Promise<{ message: string }> =>
     fetchApi(`/documents/reject/${signatureId}`, token, {
       method: 'POST',

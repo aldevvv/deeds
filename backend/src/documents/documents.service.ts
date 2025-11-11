@@ -505,18 +505,22 @@ export class DocumentsService {
       throw new BadRequestException('Not authorized to sign this document');
     }
 
-    if (signature.status !== 'PENDING') {
-      throw new BadRequestException('Signature already processed');
+    // INCREMENTAL SIGNING: Allow re-signing if document is not COMPLETED yet
+    // This enables multiple signatures in one session
+    if (signature.document.status === 'COMPLETED') {
+      throw new BadRequestException('Document already completed');
     }
 
-    // Check if it's the correct order
-    const previousSignatures = signature.document.signatures.filter(
-      s => s.order < signature.order
-    );
-    const allPreviousSigned = previousSignatures.every(s => s.signedAt !== null);
+    // Check if it's the correct order (only if this signature hasn't been signed yet)
+    if (signature.status === 'PENDING') {
+      const previousSignatures = signature.document.signatures.filter(
+        s => s.order < signature.order
+      );
+      const allPreviousSigned = previousSignatures.every(s => s.signedAt !== null);
 
-    if (!allPreviousSigned) {
-      throw new BadRequestException('Previous signers have not signed yet');
+      if (!allPreviousSigned) {
+        throw new BadRequestException('Previous signers have not signed yet');
+      }
     }
 
     try {
@@ -707,6 +711,221 @@ export class DocumentsService {
     } catch (error) {
       console.error('Error embedding signature:', error);
       throw new BadRequestException('Failed to embed signature in PDF');
+    }
+  }
+
+  async signDocumentWithMultipleSignatures(
+    userId: string,
+    signatureId: string,
+    signatures: Array<{ signatureImage: string; position: any }>,
+  ) {
+    console.log(`[BATCH-SIGN] Starting batch sign with ${signatures.length} signatures`);
+    
+    const signature = await this.prisma.signature.findUnique({
+      where: { id: signatureId },
+      include: {
+        document: {
+          include: {
+            signatures: {
+              include: {
+                user: true,
+              },
+              orderBy: {
+                order: 'asc',
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!signature) {
+      throw new NotFoundException('Signature not found');
+    }
+
+    if (signature.userId !== userId) {
+      throw new BadRequestException('Not authorized to sign this document');
+    }
+
+    if (signature.document.status === 'COMPLETED') {
+      throw new BadRequestException('Document already completed');
+    }
+
+    // Check order for pending signatures
+    if (signature.status === 'PENDING') {
+      const previousSignatures = signature.document.signatures.filter(
+        s => s.order < signature.order
+      );
+      const allPreviousSigned = previousSignatures.every(s => s.signedAt !== null);
+
+      if (!allPreviousSigned) {
+        throw new BadRequestException('Previous signers have not signed yet');
+      }
+    }
+
+    try {
+      // Download PDF
+      const fileToDownload = signature.document.signedFileUrl || signature.document.fileUrl;
+      console.log('[BATCH-SIGN] Loading PDF:', fileToDownload);
+      
+      const pdfBuffer = await this.r2Service.downloadFile(fileToDownload);
+      const pdfBytes = pdfBuffer.buffer.slice(pdfBuffer.byteOffset, pdfBuffer.byteOffset + pdfBuffer.byteLength) as ArrayBuffer;
+      
+      const pdfDoc = await PDFDocument.load(pdfBytes);
+      const pages = pdfDoc.getPages();
+
+      // Re-embed previous signatures
+      const previousSignatures = signature.document.signatures.filter(
+        sig => sig.status === 'SIGNED' && sig.signatureData && sig.id !== signatureId
+      );
+
+      console.log(`[BATCH-SIGN] Re-embedding ${previousSignatures.length} previous signatures`);
+      
+      for (const prevSig of previousSignatures) {
+        try {
+          const sigData = JSON.parse(prevSig.signatureData);
+          const prevPosition = sigData.position;
+          const prevSignatureImage = sigData.signatureImage;
+          
+          if (prevPosition && prevPosition.page && prevSignatureImage) {
+            const prevPage = pages[prevPosition.page - 1];
+            if (prevPage) {
+              const { height: prevPageHeight } = prevPage.getSize();
+              
+              const prevSignatureImageBytes = Buffer.from(
+                prevSignatureImage.replace(/^data:image\/\w+;base64,/, ''),
+                'base64',
+              );
+              
+              let prevEmbeddedImage;
+              if (prevSignatureImage.includes('image/png')) {
+                prevEmbeddedImage = await pdfDoc.embedPng(prevSignatureImageBytes);
+              } else {
+                prevEmbeddedImage = await pdfDoc.embedJpg(prevSignatureImageBytes);
+              }
+              
+              prevPage.drawImage(prevEmbeddedImage, {
+                x: prevPosition.x,
+                y: prevPageHeight - prevPosition.y - prevPosition.height,
+                width: prevPosition.width,
+                height: prevPosition.height,
+              });
+            }
+          }
+        } catch (e) {
+          console.error(`[BATCH-SIGN] Error re-embedding signature:`, e);
+        }
+      }
+
+      // Add ALL new signatures
+      console.log(`[BATCH-SIGN] Adding ${signatures.length} new signatures`);
+      
+      for (let i = 0; i < signatures.length; i++) {
+        const { signatureImage, position } = signatures[i];
+        console.log(`[BATCH-SIGN] Processing signature ${i + 1}/${signatures.length} on page ${position.page}`);
+        
+        const page = pages[position.page - 1];
+        if (!page) {
+          throw new BadRequestException(`Invalid page number: ${position.page}`);
+        }
+
+        const signatureImageBytes = Buffer.from(
+          signatureImage.replace(/^data:image\/\w+;base64,/, ''),
+          'base64',
+        );
+
+        let embeddedImage;
+        if (signatureImage.includes('image/png')) {
+          embeddedImage = await pdfDoc.embedPng(signatureImageBytes);
+        } else {
+          embeddedImage = await pdfDoc.embedJpg(signatureImageBytes);
+        }
+
+        const { height: pageHeight } = page.getSize();
+
+        page.drawImage(embeddedImage, {
+          x: position.x,
+          y: pageHeight - position.y - position.height,
+          width: position.width,
+          height: position.height,
+        });
+        
+        console.log(`[BATCH-SIGN] ✓ Signature ${i + 1} added to page ${position.page}`);
+      }
+
+      // Save PDF
+      const signedPdfBytes = await pdfDoc.save();
+      console.log('[BATCH-SIGN] PDF saved with all signatures');
+
+      // Upload to R2
+      const originalFileName = signature.document.fileName;
+      const fileExt = originalFileName.split('.').pop();
+      const baseName = originalFileName.replace(`.${fileExt}`, '');
+      const signedFileName = `${baseName}_signed_${Date.now()}.${fileExt}`;
+
+      const signedFile = {
+        originalname: signedFileName,
+        buffer: Buffer.from(signedPdfBytes),
+        mimetype: 'application/pdf',
+        size: signedPdfBytes.byteLength,
+      };
+
+      const { path: signedFilePath } = await this.r2Service.uploadFile(
+        signedFile as any,
+        'documents',
+      );
+      
+      console.log('[BATCH-SIGN] Uploaded signed PDF');
+
+      // Update signature record - store ALL signatures data
+      await this.prisma.signature.update({
+        where: { id: signatureId },
+        data: {
+          status: 'SIGNED',
+          signedAt: new Date(),
+          signatureData: JSON.stringify({
+            signatures: signatures.map((sig, i) => ({
+              position: sig.position,
+              signatureImage: sig.signatureImage,
+              index: i,
+            })),
+            timestamp: new Date().toISOString(),
+          }),
+        },
+      });
+
+      // Check if all signatures complete
+      const allSignatures = signature.document.signatures;
+      const allSigned = allSignatures.every(
+        s => s.id === signatureId || s.signedAt !== null
+      );
+
+      if (allSigned) {
+        console.log('[BATCH-SIGN] All signatures complete - COMPLETED');
+        await this.prisma.document.update({
+          where: { id: signature.documentId },
+          data: {
+            status: DocumentStatus.COMPLETED,
+            signedFileUrl: signedFilePath,
+          },
+        });
+      } else {
+        console.log('[BATCH-SIGN] Partially signed - SIGNED');
+        await this.prisma.document.update({
+          where: { id: signature.documentId },
+          data: {
+            status: DocumentStatus.SIGNED,
+            signedFileUrl: signedFilePath,
+          },
+        });
+      }
+
+      console.log(`[BATCH-SIGN] ✓✓✓ SUCCESS - ${signatures.length} signatures embedded ✓✓✓`);
+      return { message: `${signatures.length} signatures embedded successfully` };
+      
+    } catch (error) {
+      console.error('[BATCH-SIGN] Error:', error);
+      throw new BadRequestException('Failed to embed signatures in PDF');
     }
   }
 

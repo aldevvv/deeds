@@ -184,6 +184,20 @@ export class DocumentsController {
     );
   }
 
+  @Post('sign/:signatureId/with-multiple-signatures')
+  @HttpCode(HttpStatus.OK)
+  async signDocumentWithMultipleSignatures(
+    @Request() req,
+    @Param('signatureId') signatureId: string,
+    @Body() body: { signatures: Array<{ signatureImage: string; position: any }> },
+  ) {
+    return this.documentsService.signDocumentWithMultipleSignatures(
+      req.user.userId,
+      signatureId,
+      body.signatures,
+    );
+  }
+
   @Post('reject/:signatureId')
   @HttpCode(HttpStatus.OK)
   async rejectDocument(
