@@ -377,6 +377,8 @@ export default function SignDocumentsListPage() {
                               return;
                             }
                             
+                            toast.loading("Memuat preview...", { id: "preview" });
+                            
                             const blob = await documentsApi.previewDocument(token, doc.id);
                             const pdfBlob = new Blob([blob], { type: 'application/pdf' });
                             const url = window.URL.createObjectURL(pdfBlob);
@@ -384,15 +386,17 @@ export default function SignDocumentsListPage() {
                             // Open in new tab
                             const newWindow = window.open(url, '_blank');
                             if (!newWindow) {
-                              toast.error("Pop-up diblokir. Izinkan pop-up untuk preview.");
+                              toast.error("Pop-up diblokir. Izinkan pop-up untuk preview.", { id: "preview" });
+                            } else {
+                              toast.success("Preview dibuka", { id: "preview" });
                             }
                             
                             // Cleanup after a delay
                             setTimeout(() => {
                               window.URL.revokeObjectURL(url);
                             }, 5000);
-                          } catch (error) {
-                            toast.error("Gagal membuka preview dokumen");
+                          } catch (error: any) {
+                            toast.error(error.message || "Gagal membuka preview dokumen", { id: "preview" });
                           }
                         }}
                         className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center gap-2"

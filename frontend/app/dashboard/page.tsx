@@ -48,7 +48,7 @@ export default function DashboardPage() {
         rejected: docs.filter((d: any) => d.status === "REJECTED").length,
       });
     } catch (error) {
-      console.error("Error loading data:", error);
+      // Error loading data
     } finally {
       setLoading(false);
     }

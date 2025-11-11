@@ -238,20 +238,24 @@ export default function SignatureHistoryPage() {
                                 return;
                               }
 
+                              toast.loading("Memuat preview...", { id: "preview" });
+                              
                               const blob = await documentsApi.previewDocument(token, doc.id);
                               const pdfBlob = new Blob([blob], { type: 'application/pdf' });
                               const url = window.URL.createObjectURL(pdfBlob);
                               
                               const newWindow = window.open(url, '_blank');
                               if (!newWindow) {
-                                toast.error("Pop-up diblokir. Izinkan pop-up untuk preview.");
+                                toast.error("Pop-up diblokir. Izinkan pop-up untuk preview.", { id: "preview" });
+                              } else {
+                                toast.success("Preview dibuka", { id: "preview" });
                               }
                               
                               setTimeout(() => {
                                 window.URL.revokeObjectURL(url);
                               }, 5000);
-                            } catch (error) {
-                              toast.error("Gagal membuka preview dokumen");
+                            } catch (error: any) {
+                              toast.error(error.message || "Gagal membuka preview dokumen", { id: "preview" });
                             }
                           }}
                           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center gap-2"
@@ -269,31 +273,21 @@ export default function SignatureHistoryPage() {
                                 return;
                               }
 
-                              const response = await fetch(
-                                `${process.env.NEXT_PUBLIC_API_URL}/documents/download/${doc.id}`,
-                                {
-                                  headers: {
-                                    Authorization: `Bearer ${token}`,
-                                  },
-                                }
-                              );
-
-                              if (!response.ok) {
-                                throw new Error('Download failed');
-                              }
-
-                              const blob = await response.blob();
+                              toast.loading("Mengunduh dokumen...", { id: "download" });
+                              
+                              const blob = await documentsApi.downloadDocument(token, doc.id);
                               const url = window.URL.createObjectURL(blob);
                               const a = document.createElement('a');
                               a.href = url;
-                              a.download = doc.fileName || 'document.pdf';
+                              a.download = `${doc.title}.pdf`;
                               document.body.appendChild(a);
                               a.click();
-                              window.URL.revokeObjectURL(url);
                               document.body.removeChild(a);
-                              toast.success("Download berhasil!");
-                            } catch (error) {
-                              toast.error("Gagal download dokumen");
+                              window.URL.revokeObjectURL(url);
+                              
+                              toast.success("Dokumen berhasil diunduh", { id: "download" });
+                            } catch (error: any) {
+                              toast.error(error.message || "Gagal mengunduh dokumen", { id: "download" });
                             }
                           }}
                           className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium flex items-center gap-2"

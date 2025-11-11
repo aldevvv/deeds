@@ -49,7 +49,7 @@ export default function TrackingPage() {
         setDocuments(docs);
         setFilteredDocuments(docs);
       } catch (error) {
-        console.error("Error fetching documents:", error);
+        // Error fetching documents
       } finally {
         setLoading(false);
       }
@@ -141,11 +141,9 @@ export default function TrackingPage() {
         return;
       }
 
-      console.log('Preview: Starting preview for doc', doc.id);
       toast.loading("Memuat preview...", { id: "preview" });
       
       const blob = await documentsApi.previewDocument(token, doc.id);
-      console.log('Preview: Blob received', blob);
       
       const url = window.URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
       const newWindow = window.open(url, '_blank');
@@ -160,7 +158,6 @@ export default function TrackingPage() {
         window.URL.revokeObjectURL(url);
       }, 5000);
     } catch (error: any) {
-      console.error('Preview error:', error);
       toast.error(error.message || "Gagal membuka preview dokumen", { id: "preview" });
     }
   };
@@ -173,11 +170,9 @@ export default function TrackingPage() {
         return;
       }
 
-      console.log('Download: Starting download for doc', doc.id);
       toast.loading("Mengunduh dokumen...", { id: "download" });
       
       const blob = await documentsApi.downloadDocument(token, doc.id);
-      console.log('Download: Blob received', blob);
       
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -190,7 +185,6 @@ export default function TrackingPage() {
       
       toast.success("Dokumen berhasil diunduh", { id: "download" });
     } catch (error: any) {
-      console.error('Download error:', error);
       toast.error(error.message || "Gagal mengunduh dokumen", { id: "download" });
     }
   };

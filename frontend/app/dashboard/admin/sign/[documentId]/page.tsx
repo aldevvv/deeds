@@ -447,6 +447,7 @@ export default function SignDocumentPage() {
             <PDFSignatureViewer
               pdfUrl={`${process.env.NEXT_PUBLIC_API_URL}/documents/preview/${documentData.id}`}
               signatureImage={signatureImage}
+              existingSignatures={documentData.signatures?.filter((sig: any) => sig.status === 'SIGNED') || []}
               onPositionChange={setSignaturePosition}
               onConfirm={handleConfirmSignature}
               onCancel={() => {}}

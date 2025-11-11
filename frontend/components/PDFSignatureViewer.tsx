@@ -21,9 +21,20 @@ interface SignaturePosition {
   page: number;
 }
 
+interface ExistingSignature {
+  id: string;
+  user: {
+    fullName: string;
+  };
+  signatureData?: string;
+  signedAt?: string;
+  order: number;
+}
+
 interface PDFSignatureViewerProps {
   pdfUrl: string;
   signatureImage: string;
+  existingSignatures?: ExistingSignature[];
   onPositionChange: (position: SignaturePosition) => void;
   onConfirm: () => void;
   onCancel: () => void;
@@ -32,6 +43,7 @@ interface PDFSignatureViewerProps {
 export default function PDFSignatureViewer({
   pdfUrl,
   signatureImage,
+  existingSignatures = [],
   onPositionChange,
   onConfirm,
   onCancel,
@@ -164,7 +176,57 @@ export default function PDFSignatureViewer({
         await renderTaskRef.current.promise;
         renderTaskRef.current = null;
 
-        // Draw signature AFTER PDF render is complete (only if signature exists)
+        // Draw existing signatures first (already signed)
+        if (existingSignatures && existingSignatures.length > 0) {
+          for (const existingSig of existingSignatures) {
+            if (existingSig.signedAt && existingSig.signatureData) {
+              try {
+                const sigData = JSON.parse(existingSig.signatureData);
+                const sigPosition = sigData.position;
+                
+                // Only draw if on current page
+                if (sigPosition.page === currentPage) {
+                  // Draw a placeholder box for existing signatures
+                  context.save();
+                  
+                  // Semi-transparent blue fill for existing signatures
+                  context.fillStyle = 'rgba(59, 130, 246, 0.1)';
+                  context.fillRect(
+                    sigPosition.x,
+                    sigPosition.y,
+                    sigPosition.width,
+                    sigPosition.height
+                  );
+                  
+                  // Solid border for existing signatures
+                  context.strokeStyle = '#3B82F6';
+                  context.lineWidth = 2;
+                  context.strokeRect(
+                    sigPosition.x,
+                    sigPosition.y,
+                    sigPosition.width,
+                    sigPosition.height
+                  );
+                  
+                  // Draw label
+                  context.fillStyle = '#3B82F6';
+                  context.font = 'bold 12px system-ui';
+                  context.fillText(
+                    `✓ ${existingSig.user.fullName}`,
+                    sigPosition.x + 5,
+                    sigPosition.y + sigPosition.height / 2 + 5
+                  );
+                  
+                  context.restore();
+                }
+              } catch (e) {
+                // Ignore invalid signature data
+              }
+            }
+          }
+        }
+
+        // Draw NEW signature AFTER PDF render is complete (only if signature exists)
         if (signatureImage && signaturePos.page === currentPage) {
           // Pre-load image
           const img = new Image();
@@ -267,7 +329,7 @@ export default function PDFSignatureViewer({
         renderTaskRef.current = null;
       }
     };
-  }, [pdfDoc, currentPage, scale, signatureImage, signaturePos]);
+  }, [pdfDoc, currentPage, scale, signatureImage, signaturePos, existingSignatures]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (!canvasRef.current) return;
