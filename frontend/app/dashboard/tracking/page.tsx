@@ -141,11 +141,27 @@ export default function TrackingPage() {
         return;
       }
 
+      console.log('Preview: Starting download for doc', doc.id);
+      toast.loading("Memuat preview...", { id: "preview" });
+      
       const blob = await documentsApi.downloadDocument(token, doc.id);
+      console.log('Preview: Blob received', blob);
+      
       const url = window.URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
-      window.open(url, '_blank');
+      const newWindow = window.open(url, '_blank');
+      
+      if (!newWindow) {
+        toast.error("Pop-up diblokir. Izinkan pop-up untuk preview.", { id: "preview" });
+      } else {
+        toast.success("Preview dibuka", { id: "preview" });
+      }
+      
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+      }, 5000);
     } catch (error: any) {
-      toast.error(error.message || "Gagal membuka preview dokumen");
+      console.error('Preview error:', error);
+      toast.error(error.message || "Gagal membuka preview dokumen", { id: "preview" });
     }
   };
 
@@ -157,8 +173,11 @@ export default function TrackingPage() {
         return;
       }
 
+      console.log('Download: Starting download for doc', doc.id);
       toast.loading("Mengunduh dokumen...", { id: "download" });
+      
       const blob = await documentsApi.downloadDocument(token, doc.id);
+      console.log('Download: Blob received', blob);
       
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -171,6 +190,7 @@ export default function TrackingPage() {
       
       toast.success("Dokumen berhasil diunduh", { id: "download" });
     } catch (error: any) {
+      console.error('Download error:', error);
       toast.error(error.message || "Gagal mengunduh dokumen", { id: "download" });
     }
   };

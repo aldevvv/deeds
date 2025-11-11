@@ -164,17 +164,29 @@ export const documentsApi = {
     fetchApi(`/documents/view/${documentId}`, token),
 
   downloadDocument: async (token: string, documentId: string): Promise<Blob> => {
+    console.log('API: Downloading document', documentId);
     const response = await fetch(`${API_URL}/documents/download/${documentId}`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
     });
 
+    console.log('API: Response status', response.status, response.statusText);
+    console.log('API: Response headers', Object.fromEntries(response.headers.entries()));
+
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Download failed');
+      let errorMessage = 'Download failed';
+      try {
+        const error = await response.json();
+        errorMessage = error.message || errorMessage;
+      } catch (e) {
+        errorMessage = `Download failed with status ${response.status}`;
+      }
+      throw new Error(errorMessage);
     }
 
-    return response.blob();
+    const blob = await response.blob();
+    console.log('API: Blob size', blob.size, 'type', blob.type);
+    return blob;
   },
 };
