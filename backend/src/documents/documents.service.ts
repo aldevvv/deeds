@@ -538,11 +538,21 @@ export class DocumentsService {
 
       // RE-EMBED ALL PREVIOUSLY SIGNED SIGNATURES FIRST
       // Get all signatures that are already signed (except current one)
+      console.log('[MULTI-SIGNATURE] All document signatures:', signature.document.signatures.map(s => ({
+        id: s.id,
+        userId: s.userId,
+        status: s.status,
+        order: s.order,
+        hasSignatureData: !!s.signatureData,
+        isCurrent: s.id === signatureId,
+      })));
+      
       const previousSignatures = signature.document.signatures.filter(
         sig => sig.status === 'SIGNED' && sig.signatureData && sig.id !== signatureId
       );
 
-      console.log(`[MULTI-SIGNATURE] Re-embedding ${previousSignatures.length} previous signatures`);
+      console.log(`[MULTI-SIGNATURE] Re-embedding ${previousSignatures.length} previous signatures:`, 
+        previousSignatures.map(s => ({ id: s.id, order: s.order })));
 
       for (const prevSig of previousSignatures) {
         try {
