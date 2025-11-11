@@ -44,16 +44,20 @@ export default function SignDocumentPage() {
   const sigCanvas = useRef<SignatureCanvas>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Current signature position for auto-submit
-  const [currentSignaturePosition, setCurrentSignaturePosition] = useState<{
+  // MULTIPLE SIGNATURES - Array approach (batch submit)
+  const [placedSignatures, setPlacedSignatures] = useState<Array<{
+    image: string;
+    position: { x: number; y: number; width: number; height: number; page: number };
+  }>>([]);
+  
+  // Track current temp position (only for display, not saved yet)
+  const [currentTempPosition, setCurrentTempPosition] = useState<{
     x: number;
     y: number;
     width: number;
     height: number;
     page: number;
   } | null>(null);
-  
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     fetchDocument();
@@ -107,53 +111,40 @@ export default function SignDocumentPage() {
     setTempSignatureImage("");
   };
   
-  // Track position during drag - don't submit yet
+  // Track position during drag - just for visual feedback
   const handleSignaturePlaced = (position: { x: number; y: number; width: number; height: number; page: number } | null) => {
-    setCurrentSignaturePosition(position);
+    setCurrentTempPosition(position);
   };
   
-  // Submit current signature immediately to backend
-  const handlePlaceAndSave = async () => {
-    if (!documentData || !tempSignatureImage || !currentSignaturePosition) {
+  // Confirm placement - add to array (NOT submit to backend yet)
+  const handleConfirmPlacement = () => {
+    if (!tempSignatureImage || !currentTempPosition) {
       toast.error("Posisikan tanda tangan terlebih dahulu");
       return;
     }
     
-    if (isSubmitting) return;
+    // Add to placed signatures array
+    setPlacedSignatures([...placedSignatures, {
+      image: tempSignatureImage,
+      position: currentTempPosition
+    }]);
     
-    setIsSubmitting(true);
-    const loadingToast = toast.loading("Menyimpan tanda tangan...");
+    toast.success(`✓ Tanda tangan ${placedSignatures.length + 1} ditempatkan! Lanjutkan ke halaman lain atau klik Simpan Semua.`, {
+      duration: 3000
+    });
     
-    try {
-      const signatureId = documentData.mySignature.id;
-
-      await documentsApi.signDocumentWithSignature(
-        signatureId,
-        tempSignatureImage,
-        currentSignaturePosition
-      );
-
-      toast.success("✓ Tanda tangan tersimpan! Buat lagi untuk halaman lain atau klik Selesai.", { 
-        id: loadingToast, 
-        duration: 4000 
-      });
-      
-      // Clear temp signature & reset canvas
-      setTempSignatureImage("");
-      setCurrentSignaturePosition(null);
-      if (sigCanvas.current) {
-        sigCanvas.current.clear();
-      }
-      
-      // Reload document to show new signature
-      await fetchDocument();
-      
-    } catch (error: any) {
-      console.error('[SIGN] Error:', error);
-      toast.error(error.message || "Gagal menyimpan tanda tangan", { id: loadingToast });
-    } finally {
-      setIsSubmitting(false);
+    // Clear temp signature for next one
+    setTempSignatureImage("");
+    setCurrentTempPosition(null);
+    if (sigCanvas.current) {
+      sigCanvas.current.clear();
     }
+  };
+  
+  // Remove signature from array
+  const handleRemoveSignature = (index: number) => {
+    setPlacedSignatures(placedSignatures.filter((_, i) => i !== index));
+    toast.success("Tanda tangan dihapus");
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -389,9 +380,46 @@ export default function SignDocumentPage() {
     }
   };
 
-  // "Selesai" button - just go back to list
+  // BATCH SUBMIT - Save all placed signatures at once
   const handleConfirmSignature = async () => {
-    router.push("/dashboard/admin/sign");
+    if (!documentData || placedSignatures.length === 0) {
+      toast.error("Silakan tempatkan minimal 1 tanda tangan");
+      return;
+    }
+
+    setIsProcessing(true);
+    const loadingToast = toast.loading(`Menyimpan ${placedSignatures.length} tanda tangan...`);
+    
+    try {
+      const signatureId = documentData.mySignature.id;
+
+      // Submit ALL signatures sequentially
+      for (let i = 0; i < placedSignatures.length; i++) {
+        const sig = placedSignatures[i];
+        toast.loading(`Menyimpan tanda tangan ${i + 1}/${placedSignatures.length}...`, { id: loadingToast });
+
+        await documentsApi.signDocumentWithSignature(
+          signatureId,
+          sig.image,
+          sig.position
+        );
+      }
+
+      toast.success(`${placedSignatures.length} tanda tangan berhasil disimpan!`, { 
+        id: loadingToast,
+        duration: 3000 
+      });
+      
+      // Wait a bit then redirect
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      router.push("/dashboard/admin/sign");
+      
+    } catch (error: any) {
+      console.error('[SIGN] Error:', error);
+      toast.error(error.message || "Gagal menyimpan tanda tangan", { id: loadingToast });
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   // Optimize signature image to reduce size
@@ -480,7 +508,7 @@ export default function SignDocumentPage() {
             <PDFSignatureViewer
               pdfUrl={`${process.env.NEXT_PUBLIC_API_URL}/documents/preview/${documentData.id}`}
               tempSignatureImage={tempSignatureImage}
-              placedSignatures={[]}
+              placedSignatures={placedSignatures}
               existingSignatures={documentData.signatures?.filter((sig: any) => sig.status === 'SIGNED') || []}
               onSignaturePlaced={handleSignaturePlaced}
               onConfirm={handleConfirmSignature}
@@ -751,19 +779,41 @@ export default function SignDocumentPage() {
 
             {/* Confirm Button at Bottom */}
             <div className="p-6 border-t border-gray-200 space-y-3">
+              {/* Show placed signatures count */}
+              {placedSignatures.length > 0 && (
+                <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <p className="text-sm text-green-800 font-medium">
+                    ✓ {placedSignatures.length} tanda tangan sudah ditempatkan
+                  </p>
+                  <div className="text-xs text-green-600 mt-2 space-y-1">
+                    {placedSignatures.map((sig, i) => (
+                      <div key={i} className="flex items-center justify-between">
+                        <span>• Halaman {sig.position.page}</span>
+                        <button
+                          onClick={() => handleRemoveSignature(i)}
+                          className="text-red-600 hover:text-red-700 font-medium"
+                        >
+                          Hapus
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
               {/* Show temp signature status */}
-              {tempSignatureImage && currentSignaturePosition && (
+              {tempSignatureImage && currentTempPosition && (
                 <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
                   <p className="text-sm text-orange-800 font-medium">
-                    🟠 Tanda tangan siap ditempatkan di Halaman {currentSignaturePosition.page}
+                    🟠 Tanda tangan siap ditempatkan di Halaman {currentTempPosition.page}
                   </p>
                   <p className="text-xs text-orange-600 mt-1">
-                    Klik "Tempatkan & Simpan" untuk menyimpan tanda tangan ini
+                    Klik "Tempatkan" untuk konfirmasi, lalu buat tanda tangan berikutnya
                   </p>
                 </div>
               )}
               
-              {tempSignatureImage && !currentSignaturePosition && (
+              {tempSignatureImage && !currentTempPosition && (
                 <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                   <p className="text-sm text-blue-800 font-medium">
                     📝 Drag tanda tangan di PDF untuk menempatkannya
@@ -771,23 +821,31 @@ export default function SignDocumentPage() {
                 </div>
               )}
               
-              {/* Place & Save Button - only show when signature is positioned */}
-              {tempSignatureImage && currentSignaturePosition && (
+              {/* Tempatkan Button - only show when temp signature is positioned */}
+              {tempSignatureImage && currentTempPosition && (
                 <button
-                  onClick={handlePlaceAndSave}
-                  disabled={isSubmitting}
-                  className="w-full px-6 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+                  onClick={handleConfirmPlacement}
+                  className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-all shadow-lg"
                 >
-                  {isSubmitting ? "Menyimpan..." : "✓ Tempatkan & Simpan Tanda Tangan"}
+                  📍 Tempatkan Tanda Tangan
                 </button>
               )}
               
-              {/* Done Button - always show */}
+              {/* Simpan Semua Button - show when there are placed signatures */}
               <button
                 onClick={handleConfirmSignature}
+                disabled={placedSignatures.length === 0 || isProcessing}
+                className="w-full px-6 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+              >
+                {isProcessing ? "Menyimpan..." : placedSignatures.length > 0 ? `✓ Simpan ${placedSignatures.length} Tanda Tangan` : "Simpan Tanda Tangan"}
+              </button>
+              
+              {/* Cancel Button */}
+              <button
+                onClick={() => router.push("/dashboard/admin/sign")}
                 className="w-full px-6 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-all"
               >
-                Selesai & Kembali
+                Batal & Kembali
               </button>
             </div>
           </div>
