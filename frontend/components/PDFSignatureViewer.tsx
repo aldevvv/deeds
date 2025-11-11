@@ -154,12 +154,20 @@ export default function PDFSignatureViewer({
     if (!pdfDoc || !canvasRef.current) return;
 
     const renderPage = async () => {
-      try {
-        // Cancel previous render if exists
-        if (renderTaskRef.current) {
-          renderTaskRef.current.cancel();
-          renderTaskRef.current = null;
+      // Cancel previous render if exists
+      if (renderTaskRef.current) {
+        try {
+          await renderTaskRef.current.cancel();
+        } catch (e) {
+          // Ignore cancel errors
         }
+        renderTaskRef.current = null;
+      }
+      
+      // Small delay to ensure previous render is fully cancelled
+      await new Promise(resolve => setTimeout(resolve, 10));
+      
+      try {
 
         const page = await pdfDoc.getPage(currentPage);
         const viewport = page.getViewport({ scale });
@@ -349,19 +357,34 @@ export default function PDFSignatureViewer({
           });
         }
       } catch (error: any) {
-        // Ignore cancellation errors
-        if (error?.name !== 'RenderingCancelledException') {
+        // Ignore cancellation errors and canvas conflicts
+        const errorMsg = error?.message || '';
+        if (error?.name !== 'RenderingCancelledException' && 
+            !errorMsg.includes('Cannot use the same canvas')) {
           console.error('[PDF VIEWER] Error rendering page:', error);
         }
       }
     };
 
-    renderPage();
+    let cancelled = false;
+    
+    const doRender = async () => {
+      if (!cancelled) {
+        await renderPage();
+      }
+    };
+    
+    doRender();
     
     return () => {
       // Cleanup on unmount or dependency change
+      cancelled = true;
       if (renderTaskRef.current) {
-        renderTaskRef.current.cancel();
+        try {
+          renderTaskRef.current.cancel();
+        } catch (e) {
+          // Ignore
+        }
         renderTaskRef.current = null;
       }
     };
