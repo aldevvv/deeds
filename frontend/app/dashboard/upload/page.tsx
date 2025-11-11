@@ -277,7 +277,7 @@ export default function UploadDocumentPage() {
                   atau klik untuk memilih file
                 </p>
                 <p className="text-xs text-gray-400">
-                  PDF, Word (Maks. 10MB)
+                  PDF, Word (Maks. 500MB)
                 </p>
                 <input
                   ref={fileInputRef}

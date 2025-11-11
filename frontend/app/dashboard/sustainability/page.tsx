@@ -376,13 +376,6 @@ export default function SustainabilityPage() {
           </div>
         )}
 
-        {/* Footer Note */}
-        <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-          <p className="text-sm text-blue-800">
-            <strong>Catatan:</strong> Nilai adalah estimasi dan dapat dikalibrasi sesuai kebijakan organisasi.
-            Faktor emisi default adalah 0,144 KgCO₂e per halaman berdasarkan baseline 2.000 halaman = 288 KgCO₂e.
-          </p>
-        </div>
       </div>
     </DashboardLayout>
   );
