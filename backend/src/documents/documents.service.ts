@@ -525,6 +525,53 @@ export class DocumentsService {
       // Load PDF document
       const pdfDoc = await PDFDocument.load(pdfBytes);
       const pages = pdfDoc.getPages();
+
+      // RE-EMBED ALL PREVIOUSLY SIGNED SIGNATURES FIRST
+      // Get all signatures that are already signed (except current one)
+      const previousSignatures = signature.document.signatures.filter(
+        sig => sig.status === 'SIGNED' && sig.signatureData && sig.id !== signatureId
+      );
+
+      for (const prevSig of previousSignatures) {
+        try {
+          const sigData = JSON.parse(prevSig.signatureData);
+          const prevPosition = sigData.position;
+          const prevSignatureImage = sigData.signatureImage;
+          
+          if (prevPosition && prevPosition.page && prevSignatureImage) {
+            const prevPage = pages[prevPosition.page - 1];
+            if (prevPage) {
+              const { height: prevPageHeight } = prevPage.getSize();
+              
+              // Re-embed the previous signature image
+              const prevSignatureImageBytes = Buffer.from(
+                prevSignatureImage.replace(/^data:image\/\w+;base64,/, ''),
+                'base64',
+              );
+              
+              let prevEmbeddedImage;
+              if (prevSignatureImage.includes('image/png')) {
+                prevEmbeddedImage = await pdfDoc.embedPng(prevSignatureImageBytes);
+              } else {
+                prevEmbeddedImage = await pdfDoc.embedJpg(prevSignatureImageBytes);
+              }
+              
+              // Draw previous signature on PDF
+              prevPage.drawImage(prevEmbeddedImage, {
+                x: prevPosition.x,
+                y: prevPageHeight - prevPosition.y - prevPosition.height,
+                width: prevPosition.width,
+                height: prevPosition.height,
+              });
+            }
+          }
+        } catch (e) {
+          // Ignore errors for individual signatures
+          console.error('Error re-embedding previous signature:', e);
+        }
+      }
+
+      // NOW ADD THE NEW SIGNATURE
       const page = pages[position.page - 1]; // PDF pages are 0-indexed
 
       if (!page) {
@@ -548,7 +595,7 @@ export class DocumentsService {
       // Get page dimensions
       const { height: pageHeight } = page.getSize();
 
-      // Draw signature on PDF (flip Y coordinate because PDF coordinate system starts from bottom)
+      // Draw NEW signature on PDF (flip Y coordinate because PDF coordinate system starts from bottom)
       page.drawImage(embeddedImage, {
         x: position.x,
         y: pageHeight - position.y - position.height,
@@ -577,7 +624,7 @@ export class DocumentsService {
         'documents',
       );
 
-      // Update signature record
+      // Update signature record - STORE SIGNATURE IMAGE for re-embedding later
       await this.prisma.signature.update({
         where: { id: signatureId },
         data: {
@@ -585,6 +632,7 @@ export class DocumentsService {
           signedAt: new Date(),
           signatureData: JSON.stringify({
             position,
+            signatureImage, // Store the base64 image for re-embedding
             timestamp: new Date().toISOString(),
           }),
         },
