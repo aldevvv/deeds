@@ -11,6 +11,21 @@ export interface PendingUser {
   createdAt: string;
 }
 
+export interface User {
+  id: string;
+  email: string;
+  fullName: string;
+  role: 'USER' | 'ADMIN' | 'ADMINISTRATOR';
+  adminTitle?: string;
+  isApproved: boolean;
+  createdAt: string;
+}
+
+export interface UpdateUserRolePayload {
+  role: 'USER' | 'ADMIN' | 'ADMINISTRATOR';
+  adminTitle?: string;
+}
+
 async function fetchApi(endpoint: string, token: string, options?: RequestInit) {
   const url = `${API_URL}${endpoint}`;
   
@@ -34,6 +49,15 @@ async function fetchApi(endpoint: string, token: string, options?: RequestInit) 
 export const usersApi = {
   getPendingUsers: (token: string): Promise<PendingUser[]> =>
     fetchApi('/users/pending', token),
+
+  getAllUsers: (token: string): Promise<User[]> =>
+    fetchApi('/users', token),
+
+  updateUserRole: (token: string, userId: string, payload: UpdateUserRolePayload): Promise<{ message: string; user: User }> =>
+    fetchApi(`/users/${userId}/role`, token, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
 
   approveUser: (token: string, userId: string): Promise<{ message: string }> =>
     fetchApi(`/users/${userId}/approve`, token, {

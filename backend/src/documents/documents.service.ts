@@ -208,11 +208,13 @@ export class DocumentsService {
         throw new BadRequestException('Some signatories not found');
       }
 
-      // Sort signatories by hierarchy
+      // Sort signatories by hierarchy (LOWEST TO HIGHEST)
+      // Hierarchy: Asisten Manager (sign first) -> Manager Sub Bidang -> Senior Manager -> General Manager (sign last)
       const titleHierarchy: Record<string, number> = {
-        SENIOR_MANAGER: 1,
+        ASISTEN_MANAGER: 1,
         MANAGER_SUB_BIDANG: 2,
-        ASISTEN_MANAGER: 3,
+        SENIOR_MANAGER: 3,
+        GENERAL_MANAGER: 4,
       };
 
       const sortedSignatories = dto.signatories
@@ -226,11 +228,11 @@ export class DocumentsService {
           };
         })
         .sort((a, b) => {
-          // If same title, keep original order
+          // If same title, keep original order from user (manual ordering)
           if (a.titlePriority === b.titlePriority) {
             return a.order - b.order;
           }
-          // Sort by hierarchy (lower number = higher priority)
+          // Sort by hierarchy (lower number = sign first)
           return a.titlePriority - b.titlePriority;
         })
         .map((sig, index) => ({

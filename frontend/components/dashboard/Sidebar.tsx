@@ -59,10 +59,11 @@ const menuSections: MenuSection[] = [
     ],
   },
   {
-    title: "MENU ADMINISTRATOR",
+    title: "MENU KHUSUS",
     roles: ['ADMINISTRATOR'],
     items: [
       { name: "Kelola User & Role", href: "/dashboard/administrator/users", icon: Users, roles: ['ADMINISTRATOR'] },
+      { name: "Persetujuan Pendaftaran", href: "/dashboard/administrator/registrations", icon: UserCircle, roles: ['ADMINISTRATOR'] },
     ],
   },
 ];
@@ -101,7 +102,7 @@ export default function Sidebar({ user }: SidebarProps) {
   const getVisibleSections = () => {
     // User & Admin share the same main menu, Administrator has its own
     if (user.role === 'ADMINISTRATOR') {
-      return menuSections.filter(s => s.title === 'MENU ADMINISTRATOR');
+      return menuSections.filter(s => s.title === 'MENU KHUSUS');
     } else {
       return menuSections.filter(s => s.title === 'MENU UTAMA');
     }

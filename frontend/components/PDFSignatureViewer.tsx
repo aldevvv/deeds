@@ -59,6 +59,7 @@ export default function PDFSignatureViewer({
   const [currentPage, setCurrentPage] = useState(1);
   const [numPages, setNumPages] = useState(0);
   const [scale, setScale] = useState(1.0);
+  const [isRendering, setIsRendering] = useState(false);
   
   // Temp signature position (being dragged/resized)
   const [tempSignaturePos, setTempSignaturePos] = useState<SignaturePosition>({
@@ -82,6 +83,7 @@ export default function PDFSignatureViewer({
   const containerRef = useRef<HTMLDivElement>(null);
   const renderTaskRef = useRef<any>(null);
   const signatureElementRef = useRef<HTMLDivElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   
   // Reset centered flag and selection when temp signature changes
   useEffect(() => {
@@ -162,7 +164,22 @@ export default function PDFSignatureViewer({
     if (!pdfDoc || !canvasRef.current) return;
 
     const renderPage = async () => {
-      // Cancel previous render if exists
+      // [FIX 1] Rendering lock - prevent concurrent renders
+      if (isRendering) {
+        console.log('[PDF VIEWER] Render already in progress, skipping...');
+        return;
+      }
+      
+      setIsRendering(true);
+      
+      // Abort any pending async operations
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      abortControllerRef.current = new AbortController();
+      const abortSignal = abortControllerRef.current.signal;
+      
+      // Cancel previous PDF render if exists
       if (renderTaskRef.current) {
         try {
           await renderTaskRef.current.cancel();
@@ -172,15 +189,26 @@ export default function PDFSignatureViewer({
         renderTaskRef.current = null;
       }
       
-      // Small delay to ensure previous render is fully cancelled
-      await new Promise(resolve => setTimeout(resolve, 10));
+      // [FIX 2] Increased delay to ensure cleanup
+      await new Promise(resolve => setTimeout(resolve, 50));
       
       try {
+        // [FIX 3] Check if aborted before proceeding
+        if (abortSignal.aborted) {
+          setIsRendering(false);
+          return;
+        }
 
         const page = await pdfDoc.getPage(currentPage);
         const viewport = page.getViewport({ scale });
         const canvas = canvasRef.current!;
         const context = canvas.getContext("2d")!;
+
+        // [FIX 4] Check abort again after async operation
+        if (abortSignal.aborted) {
+          setIsRendering(false);
+          return;
+        }
 
         canvas.height = viewport.height;
         canvas.width = viewport.width;
@@ -200,12 +228,18 @@ export default function PDFSignatureViewer({
         // 1. Draw existing signatures first (already signed - from backend)
         if (existingSignatures && existingSignatures.length > 0) {
           for (const existingSig of existingSignatures) {
+            // [FIX 5] Check abort before each signature
+            if (abortSignal.aborted) {
+              setIsRendering(false);
+              return;
+            }
+            
             if (existingSig.signedAt && existingSig.signatureData) {
               try {
                 const sigData = JSON.parse(existingSig.signatureData);
                 const sigPosition = sigData.position;
                 
-                // Only draw if on current page
+                // [FIX 6] Validate page before drawing
                 if (sigPosition.page === currentPage) {
                   // Draw a placeholder box for existing signatures
                   context.save();
@@ -250,16 +284,27 @@ export default function PDFSignatureViewer({
         // 2. Draw PLACED signatures (confirmed in this session but not yet submitted)
         if (placedSignatures && placedSignatures.length > 0) {
           for (let i = 0; i < placedSignatures.length; i++) {
+            // [FIX 7] Check abort in loop
+            if (abortSignal.aborted) {
+              setIsRendering(false);
+              return;
+            }
+            
             const placedSig = placedSignatures[i];
             
-            // Only draw if on current page
+            // [FIX 8] Validate page matches current
             if (placedSig.position.page === currentPage) {
               try {
                 const img = new Image();
                 img.src = placedSig.image;
                 
                 await new Promise<void>((resolve) => {
+                  // [FIX 9] Check abort when image loads
                   img.onload = () => {
+                    if (abortSignal.aborted) {
+                      resolve();
+                      return;
+                    }
                     // Draw the signature image
                     context.drawImage(
                       img,
@@ -317,6 +362,12 @@ export default function PDFSignatureViewer({
 
         // 3. Draw TEMP signature (being dragged/resized - not yet placed)
         if (tempSignatureImage && tempSignaturePos.page === currentPage) {
+          // [FIX 10] Check abort before temp signature
+          if (abortSignal.aborted) {
+            setIsRendering(false);
+            return;
+          }
+          
           // Pre-load image
           const img = new Image();
           img.src = tempSignatureImage;
@@ -324,6 +375,12 @@ export default function PDFSignatureViewer({
           // Wait for image to load before drawing
           await new Promise<void>((resolve, reject) => {
             img.onload = () => {
+              // [FIX 11] Check abort on temp signature load
+              if (abortSignal.aborted) {
+                resolve();
+                return;
+              }
+              
               try {
                 // Draw temp signature image WITHOUT background (transparent)
                 context.drawImage(
@@ -439,6 +496,9 @@ export default function PDFSignatureViewer({
             !errorMsg.includes('Cannot use the same canvas')) {
           console.error('[PDF VIEWER] Error rendering page:', error);
         }
+      } finally {
+        // [FIX 12] Always release rendering lock
+        setIsRendering(false);
       }
     };
 
@@ -453,8 +513,10 @@ export default function PDFSignatureViewer({
     doRender();
     
     return () => {
-      // Cleanup on unmount or dependency change
+      // [FIX 13] Enhanced cleanup on unmount or dependency change
       cancelled = true;
+      
+      // Cancel PDF render task
       if (renderTaskRef.current) {
         try {
           renderTaskRef.current.cancel();
@@ -463,8 +525,17 @@ export default function PDFSignatureViewer({
         }
         renderTaskRef.current = null;
       }
+      
+      // Abort all async operations
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+      
+      // Release rendering lock
+      setIsRendering(false);
     };
-  }, [pdfDoc, currentPage, scale, tempSignatureImage, tempSignaturePos, placedSignatures, existingSignatures, isTempSignatureSelected, selectedPlacedIndex]);
+  }, [pdfDoc, currentPage, scale, tempSignatureImage, tempSignaturePos, placedSignatures, existingSignatures, isTempSignatureSelected, selectedPlacedIndex, isRendering]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (!canvasRef.current) return;

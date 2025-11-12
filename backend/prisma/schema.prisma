@@ -20,6 +20,7 @@ enum Role {
 }
 
 enum AdminTitle {
+  GENERAL_MANAGER
   SENIOR_MANAGER
   MANAGER_SUB_BIDANG
   ASISTEN_MANAGER
