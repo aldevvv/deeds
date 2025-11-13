@@ -142,23 +142,25 @@ export default function SignDocumentPage() {
       return;
     }
     
-    // Add to placed signatures array - KEEP the tempSignatureImage for reuse
+    // Remove timestamp from signature image before saving (clean up the URL)
+    const cleanSignatureImage = tempSignatureImage.split('#')[0];
+    
+    // Add to placed signatures array
     const newSignature = {
-      image: tempSignatureImage,
+      image: cleanSignatureImage,
       position: currentTempPosition
     };
     
     setPlacedSignatures([...placedSignatures, newSignature]);
     
-    toast.success(`✓ Tanda tangan ${placedSignatures.length + 1} ditempatkan! Signature masih bisa digunakan di halaman lain.`, {
+    toast.success(`✓ Tanda tangan ${placedSignatures.length + 1} ditempatkan! Import lagi untuk menempatkan di halaman lain.`, {
       duration: 3000
     });
     
-    // CRITICAL: Keep tempSignatureImage intact so user can navigate to other pages and place again
-    // Only clear the current position
+    // CRITICAL FIX: Clear tempSignatureImage so it doesn't auto-appear on next page
+    // User must import again to place on another page
+    setTempSignatureImage("");
     setCurrentTempPosition(null);
-    
-    // The tempSignatureImage will remain loaded, allowing placement on any page
   };
   
   // Remove signature from array

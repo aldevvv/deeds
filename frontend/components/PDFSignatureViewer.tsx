@@ -143,7 +143,8 @@ export default function PDFSignatureViewer({
     }
   }, [tempSignatureImage, canvasRef.current?.width, canvasRef.current?.height, isCentered, currentPage]);
   
-  // When user changes page, move temp signature to new page (if signature exists and not yet placed)
+  // When user changes page, move temp signature to new page ONLY if signature is being actively positioned
+  // Don't show signature if it was already placed (currentTempPosition would be null after placement)
   useEffect(() => {
     if (tempSignatureImage && isCentered) {
       // Update signature position to current page when navigating
