@@ -150,7 +150,7 @@ export default function SignDocumentPage() {
     
     setPlacedSignatures([...placedSignatures, newSignature]);
     
-    toast.success(`✓ Tanda tangan ${placedSignatures.length + 1} ditempatkan! Signature tetap bisa digunakan di halaman lain.`, {
+    toast.success(`✓ Tanda tangan ${placedSignatures.length + 1} ditempatkan! Signature masih bisa digunakan di halaman lain.`, {
       duration: 3000
     });
     
@@ -499,8 +499,9 @@ export default function SignDocumentPage() {
   const handleImportSignature = async (signature: SavedSignature) => {
     try {
       // Use thumbnailData directly (it's already base64)
-      // IMPORTANT: Don't optimize - just use as-is so it can be reused multiple times
-      const signatureImage = signature.thumbnailData;
+      // Add timestamp to force re-render even if same signature is imported again
+      const timestamp = Date.now();
+      const signatureImage = signature.thumbnailData + `#${timestamp}`;
       setTempSignatureImage(signatureImage);
       setShowImportModal(false);
       toast.success(`Tanda tangan "${signature.name}" siap ditempatkan!`, {

@@ -85,11 +85,14 @@ export default function PDFSignatureViewer({
   const signatureElementRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   
-  // Reset centered flag and selection when temp signature changes
+  // Reset centered flag and selection ONLY when signature image URL changes (not on placement)
+  const previousSignatureImageRef = useRef<string>("");
   useEffect(() => {
-    if (tempSignatureImage) {
-      // Only recenter when a NEW signature is loaded (imported/created)
-      setIsCentered(false);
+    // Only trigger recenter if the actual signature IMAGE changed (new import/create)
+    // NOT when just moving to different page or confirming placement
+    if (tempSignatureImage && tempSignatureImage !== previousSignatureImageRef.current) {
+      previousSignatureImageRef.current = tempSignatureImage;
+      setIsCentered(false); // Trigger centering for NEW signature
       setIsTempSignatureSelected(true); // Auto-select new temp signature
       setSelectedPlacedIndex(null); // Deselect placed signatures
       
@@ -99,7 +102,7 @@ export default function PDFSignatureViewer({
         page: currentPage
       }));
     }
-  }, [tempSignatureImage]);
+  }, [tempSignatureImage, currentPage]);
   
   // When page changes, DON'T automatically move signature to new page
   // Keep it on the page where it was originally placed
@@ -139,6 +142,21 @@ export default function PDFSignatureViewer({
       }, 100);
     }
   }, [tempSignatureImage, canvasRef.current?.width, canvasRef.current?.height, isCentered, currentPage]);
+  
+  // When user changes page, move temp signature to new page (if signature exists and not yet placed)
+  useEffect(() => {
+    if (tempSignatureImage && isCentered) {
+      // Update signature position to current page when navigating
+      setTempSignaturePos(prev => ({
+        ...prev,
+        page: currentPage
+      }));
+      onSignaturePlaced({
+        ...tempSignaturePos,
+        page: currentPage
+      });
+    }
+  }, [currentPage]);
 
   // Load PDF
   useEffect(() => {
