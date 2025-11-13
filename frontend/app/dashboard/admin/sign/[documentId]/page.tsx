@@ -497,22 +497,13 @@ export default function SignDocumentPage() {
 
   const handleImportSignature = async (signature: SavedSignature) => {
     try {
-      // Fetch the image and convert to base64
-      const response = await fetch(signature.imageUrl);
-      const blob = await response.blob();
-      const reader = new FileReader();
-      
-      reader.onloadend = async () => {
-        const base64 = reader.result as string;
-        const optimized = await optimizeSignatureImage(base64);
-        setTempSignatureImage(optimized);
-        setShowImportModal(false);
-        toast.success(`Signature "${signature.name}" berhasil di-import!`);
-      };
-      
-      reader.readAsDataURL(blob);
+      // Use thumbnailData directly (it's already base64)
+      const optimized = await optimizeSignatureImage(signature.thumbnailData);
+      setTempSignatureImage(optimized);
+      setShowImportModal(false);
+      toast.success(`Tanda tangan "${signature.name}" siap ditempatkan!`);
     } catch (error) {
-      toast.error("Gagal import signature");
+      toast.error("Gagal import tanda tangan");
     }
   };
 
@@ -976,25 +967,7 @@ export default function SignDocumentPage() {
                 </button>
               )}
               
-              {/* Show temp signature status */}
-              {tempSignatureImage && currentTempPosition && (
-                <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
-                  <p className="text-sm text-orange-800 font-medium">
-                    🟠 Tanda tangan siap ditempatkan di Halaman {currentTempPosition.page}
-                  </p>
-                  <p className="text-xs text-orange-600 mt-1">
-                    Klik "Tempatkan" untuk konfirmasi, lalu buat tanda tangan berikutnya
-                  </p>
-                </div>
-              )}
-              
-              {tempSignatureImage && !currentTempPosition && (
-                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <p className="text-sm text-blue-800 font-medium">
-                    📝 Drag tanda tangan di PDF untuk menempatkannya
-                  </p>
-                </div>
-              )}
+
               
               {/* Tempatkan Button - only show when temp signature is positioned */}
               {tempSignatureImage && currentTempPosition && (

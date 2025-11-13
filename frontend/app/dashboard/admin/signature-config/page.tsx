@@ -31,6 +31,9 @@ export default function SignatureConfigPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [signatureToDelete, setSignatureToDelete] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isProcessingBackground, setIsProcessingBackground] = useState(false);
+  const itemsPerPage = 6;
   const sigCanvas = useRef<SignatureCanvas>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -68,6 +71,7 @@ export default function SignatureConfigPage() {
       return;
     }
 
+    // Don't auto-remove background, just load the image
     toast.loading("Memproses gambar...", { id: "upload" });
 
     const reader = new FileReader();
@@ -89,53 +93,14 @@ export default function SignatureConfigPage() {
 
         ctx.drawImage(img, 0, 0);
 
-        if (removeBackground) {
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          const data = imageData.data;
-
-          const cornerColors = [
-            { r: data[0], g: data[1], b: data[2] },
-            {
-              r: data[(canvas.width - 1) * 4],
-              g: data[(canvas.width - 1) * 4 + 1],
-              b: data[(canvas.width - 1) * 4 + 2],
-            },
-            {
-              r: data[(canvas.height - 1) * canvas.width * 4],
-              g: data[(canvas.height - 1) * canvas.width * 4 + 1],
-              b: data[(canvas.height - 1) * canvas.width * 4 + 2],
-            },
-          ];
-
-          const avgBg = {
-            r: Math.round((cornerColors[0].r + cornerColors[1].r + cornerColors[2].r) / 3),
-            g: Math.round((cornerColors[0].g + cornerColors[1].g + cornerColors[2].g) / 3),
-            b: Math.round((cornerColors[0].b + cornerColors[1].b + cornerColors[2].b) / 3),
-          };
-
-          const threshold = 40;
-          for (let i = 0; i < data.length; i += 4) {
-            const r = data[i];
-            const g = data[i + 1];
-            const b = data[i + 2];
-
-            const diff = Math.abs(r - avgBg.r) + Math.abs(g - avgBg.g) + Math.abs(b - avgBg.b);
-
-            if (diff < threshold) {
-              data[i + 3] = 0;
-            }
-          }
-
-          ctx.putImageData(imageData, 0, 0);
-        }
-
+        // Just upload, don't remove background automatically
         canvas.toBlob((blob) => {
           if (blob) {
             const reader = new FileReader();
             reader.onload = () => {
               setUploadedImage(reader.result as string);
               toast.dismiss("upload");
-              toast.success(removeBackground ? "Background berhasil dihapus!" : "Gambar berhasil di-upload!");
+              toast.success("Gambar berhasil di-upload!");
             };
             reader.readAsDataURL(blob);
           }
@@ -146,6 +111,90 @@ export default function SignatureConfigPage() {
     };
 
     reader.readAsDataURL(file);
+  };
+
+  const handleRemoveBackground = async () => {
+    if (!uploadedImage) return;
+    
+    setIsProcessingBackground(true);
+    toast.loading("Menghapus background...", { id: "remove-bg" });
+    
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      
+      if (!ctx) {
+        toast.dismiss("remove-bg");
+        toast.error("Gagal memproses gambar");
+        setIsProcessingBackground(false);
+        return;
+      }
+
+      ctx.drawImage(img, 0, 0);
+      
+      // Background removal logic
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+
+      const cornerColors = [
+        { r: data[0], g: data[1], b: data[2] },
+        {
+          r: data[(canvas.width - 1) * 4],
+          g: data[(canvas.width - 1) * 4 + 1],
+          b: data[(canvas.width - 1) * 4 + 2],
+        },
+        {
+          r: data[(canvas.height - 1) * canvas.width * 4],
+          g: data[(canvas.height - 1) * canvas.width * 4 + 1],
+          b: data[(canvas.height - 1) * canvas.width * 4 + 2],
+        },
+      ];
+
+      const avgBg = {
+        r: Math.round((cornerColors[0].r + cornerColors[1].r + cornerColors[2].r) / 3),
+        g: Math.round((cornerColors[0].g + cornerColors[1].g + cornerColors[2].g) / 3),
+        b: Math.round((cornerColors[0].b + cornerColors[1].b + cornerColors[2].b) / 3),
+      };
+
+      const threshold = 40;
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+
+        const diff = Math.abs(r - avgBg.r) + Math.abs(g - avgBg.g) + Math.abs(b - avgBg.b);
+
+        if (diff < threshold) {
+          data[i + 3] = 0;
+        }
+      }
+
+      ctx.putImageData(imageData, 0, 0);
+      
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const reader = new FileReader();
+          reader.onload = () => {
+            setUploadedImage(reader.result as string);
+            toast.dismiss("remove-bg");
+            toast.success("Background berhasil dihapus!");
+            setIsProcessingBackground(false);
+          };
+          reader.readAsDataURL(blob);
+        }
+      }, 'image/png');
+    };
+    
+    img.onerror = () => {
+      toast.dismiss("remove-bg");
+      toast.error("Gagal memproses gambar");
+      setIsProcessingBackground(false);
+    };
+    
+    img.src = uploadedImage;
   };
 
   const createSignatureFromDraw = async () => {
@@ -366,7 +415,7 @@ export default function SignatureConfigPage() {
       <div className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="max-w-7xl mx-auto flex items-center gap-4">
           <button
-            onClick={() => router.back()}
+            onClick={() => window.close()}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
           >
             <ArrowLeft className="w-5 h-5 text-gray-600" />
@@ -481,18 +530,6 @@ export default function SignatureConfigPage() {
             {/* Upload Method */}
             {signatureMethod === "upload" && (
               <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="removeBackground"
-                    checked={removeBackground}
-                    onChange={(e) => setRemoveBackground(e.target.checked)}
-                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                  />
-                  <label htmlFor="removeBackground" className="text-sm text-gray-700">
-                    Hapus background putih otomatis
-                  </label>
-                </div>
                 <div
                   onClick={() => fileInputRef.current?.click()}
                   className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50/50 transition-colors"
@@ -513,13 +550,37 @@ export default function SignatureConfigPage() {
                     <div className="border border-gray-200 rounded-lg p-4 bg-white">
                       <img src={uploadedImage} alt="Preview" className="max-w-full h-32 mx-auto" />
                     </div>
-                    <button
-                      onClick={clearSignature}
-                      className="w-full px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium flex items-center justify-center gap-2"
-                    >
-                      <RotateCcw className="w-4 h-4" />
-                      Hapus
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={clearSignature}
+                        className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium flex items-center justify-center gap-2"
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                        Hapus
+                      </button>
+                      {removeBackground && (
+                        <button
+                          onClick={handleRemoveBackground}
+                          disabled={isProcessingBackground}
+                          className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <Check className="w-4 h-4" />
+                          {isProcessingBackground ? "Memproses..." : "Hapus Background"}
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="removeBackground"
+                        checked={removeBackground}
+                        onChange={(e) => setRemoveBackground(e.target.checked)}
+                        className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                      />
+                      <label htmlFor="removeBackground" className="text-sm text-gray-700">
+                        Tampilkan tombol Hapus Background
+                      </label>
+                    </div>
                   </div>
                 )}
               </div>
@@ -600,51 +661,79 @@ export default function SignatureConfigPage() {
           </div>
 
           {/* Right: Saved Signatures */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 flex flex-col">
             <h2 className="text-lg font-bold text-gray-900 mb-4">
               Tanda Tangan Tersimpan ({savedSignatures.length})
             </h2>
-            <div className="space-y-3 max-h-[600px] overflow-y-auto">
+            <div className="space-y-3 flex-1 overflow-y-auto" style={{ maxHeight: '500px' }}>
               {savedSignatures.length === 0 ? (
                 <div className="text-center py-12">
                   <p className="text-gray-500 text-sm">Belum ada tanda tangan tersimpan</p>
                 </div>
               ) : (
-                savedSignatures.map((sig) => (
-                  <div
-                    key={sig.id}
-                    className="flex items-center gap-3 p-4 bg-gray-50 border border-gray-200 rounded-lg hover:border-blue-300 transition-colors"
-                  >
-                    <div className="flex-shrink-0 w-24 h-24 bg-white border border-gray-200 rounded flex items-center justify-center overflow-hidden">
-                      <img
-                        src={sig.thumbnailData}
-                        alt={sig.name}
-                        className="max-w-full max-h-full object-contain"
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-medium text-gray-900">{sig.name}</p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {sig.type === "WRITE" ? "Tulis" : sig.type === "UPLOAD" ? "Upload" : "Ketik"}
-                      </p>
-                      <p className="text-xs text-gray-400 mt-1">
-                        {new Date(sig.createdAt).toLocaleDateString("id-ID")}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => {
-                        setSignatureToDelete(sig.id);
-                        setDeleteModalOpen(true);
-                      }}
-                      className="flex-shrink-0 p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                      title="Hapus"
+                savedSignatures
+                  .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                  .map((sig) => (
+                    <div
+                      key={sig.id}
+                      className="flex items-center gap-3 p-4 bg-gray-50 border border-gray-200 rounded-lg hover:border-blue-300 transition-colors"
                     >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
-                  </div>
-                ))
+                      <div className="flex-shrink-0 w-24 h-24 bg-white border border-gray-200 rounded flex items-center justify-center overflow-hidden">
+                        <img
+                          src={sig.thumbnailData}
+                          alt={sig.name}
+                          className="max-w-full max-h-full object-contain"
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-medium text-gray-900">{sig.name}</p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {sig.type === "WRITE" ? "Tulis" : sig.type === "UPLOAD" ? "Upload" : "Ketik"}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          {new Date(sig.createdAt).toLocaleDateString("id-ID")}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setSignatureToDelete(sig.id);
+                          setDeleteModalOpen(true);
+                        }}
+                        className="flex-shrink-0 p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Hapus"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </div>
+                  ))
               )}
             </div>
+            
+            {/* Pagination */}
+            {savedSignatures.length > itemsPerPage && (
+              <div className="flex items-center justify-between pt-4 mt-4 border-t border-gray-200">
+                <p className="text-sm text-gray-600">
+                  Menampilkan {Math.min((currentPage - 1) * itemsPerPage + 1, savedSignatures.length)}-
+                  {Math.min(currentPage * itemsPerPage, savedSignatures.length)} dari {savedSignatures.length}
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Sebelumnya
+                  </button>
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.min(Math.ceil(savedSignatures.length / itemsPerPage), p + 1))}
+                    disabled={currentPage >= Math.ceil(savedSignatures.length / itemsPerPage)}
+                    className="px-3 py-1 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Selanjutnya
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
