@@ -304,6 +304,33 @@ export default function SignatureConfigPage() {
     }
   }, [typedText, signatureColor, signatureMethod]);
 
+  // Auto-generate preview for draw method when user stops drawing
+  useEffect(() => {
+    if (signatureMethod === "draw" && sigCanvas.current) {
+      const canvas = sigCanvas.current;
+      let drawTimeout: NodeJS.Timeout;
+
+      const handleMouseUp = () => {
+        if (!canvas.isEmpty()) {
+          clearTimeout(drawTimeout);
+          drawTimeout = setTimeout(() => {
+            createSignatureFromDraw();
+          }, 500); // Generate preview 500ms after user stops drawing
+        }
+      };
+
+      const canvasElement = canvas.getCanvas();
+      canvasElement.addEventListener('mouseup', handleMouseUp);
+      canvasElement.addEventListener('touchend', handleMouseUp);
+
+      return () => {
+        clearTimeout(drawTimeout);
+        canvasElement.removeEventListener('mouseup', handleMouseUp);
+        canvasElement.removeEventListener('touchend', handleMouseUp);
+      };
+    }
+  }, [signatureMethod]);
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Delete Confirmation Modal */}
@@ -441,22 +468,13 @@ export default function SignatureConfigPage() {
                     }}
                   />
                 </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={clearSignature}
-                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium flex items-center justify-center gap-2"
-                  >
-                    <RotateCcw className="w-4 h-4" />
-                    Hapus
-                  </button>
-                  <button
-                    onClick={createSignatureFromDraw}
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center justify-center gap-2"
-                  >
-                    <Check className="w-4 h-4" />
-                    Buat Preview
-                  </button>
-                </div>
+                <button
+                  onClick={clearSignature}
+                  className="w-full px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium flex items-center justify-center gap-2"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  Hapus
+                </button>
               </div>
             )}
 

@@ -1010,7 +1010,7 @@ export default function SignDocumentPage() {
               <button
                 onClick={handleConfirmSignature}
                 disabled={placedSignatures.length === 0 || isProcessing}
-                className="w-full px-6 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+                className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
               >
                 {isProcessing ? "Menyimpan..." : placedSignatures.length > 0 ? `✓ Simpan ${placedSignatures.length} Tanda Tangan` : "Simpan Tanda Tangan"}
               </button>
