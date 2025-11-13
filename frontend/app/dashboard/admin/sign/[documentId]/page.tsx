@@ -14,6 +14,7 @@ import {
   Check,
   FileText,
   X,
+  FileSignature,
 } from "lucide-react";
 import { getToken } from "@/lib/auth";
 import { documentsApi } from "@/lib/documents-api";
