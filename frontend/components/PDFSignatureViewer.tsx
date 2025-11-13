@@ -87,22 +87,25 @@ export default function PDFSignatureViewer({
   
   // Reset centered flag and selection when temp signature changes
   useEffect(() => {
-    setIsCentered(false);
-    setIsTempSignatureSelected(true); // Auto-select new temp signature
-    setSelectedPlacedIndex(null); // Deselect placed signatures
-  }, [tempSignatureImage]);
-  
-  // When page changes and there's a temp signature, update its page number and recenter
-  useEffect(() => {
-    if (tempSignatureImage && tempSignaturePos.page !== currentPage) {
-      // Update signature to current page and mark as not centered so it will recenter
+    if (tempSignatureImage) {
+      // Only recenter when a NEW signature is loaded (imported/created)
+      setIsCentered(false);
+      setIsTempSignatureSelected(true); // Auto-select new temp signature
+      setSelectedPlacedIndex(null); // Deselect placed signatures
+      
+      // Update to current page and trigger centering
       setTempSignaturePos(prev => ({
         ...prev,
         page: currentPage
       }));
-      setIsCentered(false); // Trigger recentering on new page
     }
-  }, [currentPage, tempSignatureImage]);
+  }, [tempSignatureImage]);
+  
+  // When page changes, DON'T automatically move signature to new page
+  // Keep it on the page where it was originally placed
+  useEffect(() => {
+    // Don't do anything - signature stays on its original page
+  }, [currentPage]);
   
   // Center temp signature when first loaded AND scroll into view - use CURRENT PAGE
   useEffect(() => {

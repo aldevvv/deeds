@@ -503,12 +503,23 @@ export default function SignDocumentPage() {
       const signatureImage = signature.thumbnailData;
       setTempSignatureImage(signatureImage);
       setShowImportModal(false);
-      toast.success(`Tanda tangan "${signature.name}" siap ditempatkan! Bisa digunakan berkali-kali.`, {
+      toast.success(`Tanda tangan "${signature.name}" siap ditempatkan!`, {
         duration: 3000
       });
     } catch (error) {
       toast.error("Gagal import tanda tangan");
     }
+  };
+  
+  // Helper to show signature on current page (triggered by button)
+  const handleShowSignatureOnCurrentPage = () => {
+    if (!tempSignatureImage) return;
+    
+    // This will trigger PDFViewer to recenter signature on current page
+    setCurrentTempPosition(null);
+    setTempSignatureImage(tempSignatureImage); // Re-trigger to force update
+    
+    toast.success("Tanda tangan ditampilkan di halaman ini!");
   };
 
   return (
