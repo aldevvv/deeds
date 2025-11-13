@@ -29,6 +29,8 @@ export default function SignatureConfigPage() {
   const [signatureColor, setSignatureColor] = useState<string>("#000000");
   const [savedSignatures, setSavedSignatures] = useState<SavedSignature[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [signatureToDelete, setSignatureToDelete] = useState<string | null>(null);
   const sigCanvas = useRef<SignatureCanvas>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -154,7 +156,6 @@ export default function SignatureConfigPage() {
     const dataURL = sigCanvas.current?.toDataURL("image/png");
     const optimized = await optimizeSignatureImage(dataURL || "");
     setTempSignatureImage(optimized);
-    toast.success("Tanda tangan siap disimpan!");
   };
 
   const createSignatureFromUpload = async () => {
@@ -164,7 +165,6 @@ export default function SignatureConfigPage() {
     }
     const optimized = await optimizeSignatureImage(uploadedImage);
     setTempSignatureImage(optimized);
-    toast.success("Tanda tangan siap disimpan!");
   };
 
   const createSignatureFromType = async () => {
@@ -180,7 +180,7 @@ export default function SignatureConfigPage() {
       const ctx = canvas.getContext("2d");
 
       if (!ctx) {
-        toast.error("Gagal membuat signature");
+        toast.error("Gagal membuat tanda tangan");
         return;
       }
 
@@ -193,7 +193,6 @@ export default function SignatureConfigPage() {
       const dataURL = canvas.toDataURL("image/png", 0.7);
       const optimized = await optimizeSignatureImage(dataURL);
       setTempSignatureImage(optimized);
-      toast.success("Tanda tangan siap disimpan!");
     } catch (error) {
       toast.error("Gagal membuat tanda tangan");
     }
@@ -239,12 +238,12 @@ export default function SignatureConfigPage() {
     }
 
     if (!signatureName.trim()) {
-      toast.error("Silakan masukkan nama signature");
+      toast.error("Silakan masukkan nama tanda tangan");
       return;
     }
 
     setIsLoading(true);
-    const loadingToast = toast.loading("Menyimpan signature...");
+    const loadingToast = toast.loading("Menyimpan tanda tangan...");
 
     try {
       const typeMap: Record<SignatureMethod, SignatureType> = {
@@ -255,38 +254,87 @@ export default function SignatureConfigPage() {
 
       await savedSignaturesApi.create(signatureName, typeMap[signatureMethod], tempSignatureImage);
 
-      toast.success("Signature berhasil disimpan!", { id: loadingToast });
+      toast.success("Tanda tangan berhasil disimpan!", { id: loadingToast });
       
-      // Reset form
-      setSignatureName("");
+      // Reset form - DON'T clear signatureName to allow multiple saves
       setTempSignatureImage("");
       clearSignature();
       
       // Refresh list
       await fetchSavedSignatures();
     } catch (error: any) {
-      toast.error(error.message || "Gagal menyimpan signature", { id: loadingToast });
+      toast.error(error.message || "Gagal menyimpan tanda tangan", { id: loadingToast });
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleDeleteSignature = async (id: string) => {
-    if (!confirm("Hapus signature ini?")) return;
+  const handleDeleteSignature = async () => {
+    if (!signatureToDelete) return;
 
-    const loadingToast = toast.loading("Menghapus signature...");
+    const loadingToast = toast.loading("Menghapus tanda tangan...");
 
     try {
-      await savedSignaturesApi.delete(id);
-      toast.success("Signature berhasil dihapus!", { id: loadingToast });
+      await savedSignaturesApi.delete(signatureToDelete);
+      toast.success("Tanda tangan berhasil dihapus!", { id: loadingToast });
       await fetchSavedSignatures();
     } catch (error) {
-      toast.error("Gagal menghapus signature", { id: loadingToast });
+      toast.error("Gagal menghapus tanda tangan", { id: loadingToast });
+    } finally {
+      setDeleteModalOpen(false);
+      setSignatureToDelete(null);
     }
   };
 
+  // Auto-generate preview when inputs change (with debounce for typing)
+  useEffect(() => {
+    if (signatureMethod === "upload" && uploadedImage) {
+      createSignatureFromUpload();
+    }
+  }, [uploadedImage]);
+
+  useEffect(() => {
+    if (signatureMethod === "type" && typedText.trim()) {
+      const timer = setTimeout(() => {
+        createSignatureFromType();
+      }, 300); // Debounce 300ms
+      return () => clearTimeout(timer);
+    } else if (signatureMethod === "type" && !typedText.trim()) {
+      setTempSignatureImage("");
+    }
+  }, [typedText, signatureColor, signatureMethod]);
+
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Delete Confirmation Modal */}
+      {deleteModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Hapus Tanda Tangan</h3>
+            <p className="text-sm text-gray-600 mb-6">
+              Apakah Anda yakin ingin menghapus tanda tangan ini? Tindakan ini tidak dapat dibatalkan.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setDeleteModalOpen(false);
+                  setSignatureToDelete(null);
+                }}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleDeleteSignature}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+              >
+                Hapus
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="max-w-7xl mx-auto flex items-center gap-4">
@@ -315,7 +363,7 @@ export default function SignatureConfigPage() {
             {/* Name Input */}
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Nama Signature
+                Nama Tanda Tangan
               </label>
               <input
                 type="text"
@@ -406,7 +454,7 @@ export default function SignatureConfigPage() {
                     className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center justify-center gap-2"
                   >
                     <Check className="w-4 h-4" />
-                    Preview
+                    Buat Preview
                   </button>
                 </div>
               </div>
@@ -447,22 +495,13 @@ export default function SignatureConfigPage() {
                     <div className="border border-gray-200 rounded-lg p-4 bg-white">
                       <img src={uploadedImage} alt="Preview" className="max-w-full h-32 mx-auto" />
                     </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={clearSignature}
-                        className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium flex items-center justify-center gap-2"
-                      >
-                        <RotateCcw className="w-4 h-4" />
-                        Hapus
-                      </button>
-                      <button
-                        onClick={createSignatureFromUpload}
-                        className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center justify-center gap-2"
-                      >
-                        <Check className="w-4 h-4" />
-                        Preview
-                      </button>
-                    </div>
+                    <button
+                      onClick={clearSignature}
+                      className="w-full px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium flex items-center justify-center gap-2"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                      Hapus
+                    </button>
                   </div>
                 )}
               </div>
@@ -509,23 +548,13 @@ export default function SignatureConfigPage() {
                     </div>
                   </div>
                 )}
-                <div className="flex gap-2">
-                  <button
-                    onClick={clearSignature}
-                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium flex items-center justify-center gap-2"
-                  >
-                    <RotateCcw className="w-4 h-4" />
-                    Hapus
-                  </button>
-                  <button
-                    onClick={createSignatureFromType}
-                    disabled={!typedText}
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                  >
-                    <Check className="w-4 h-4" />
-                    Preview
-                  </button>
-                </div>
+                <button
+                  onClick={clearSignature}
+                  className="w-full px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium flex items-center justify-center gap-2"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  Hapus
+                </button>
               </div>
             )}
 
@@ -543,10 +572,10 @@ export default function SignatureConfigPage() {
                 <button
                   onClick={handleSaveSignature}
                   disabled={isLoading || !signatureName.trim()}
-                  className="w-full px-6 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   <Save className="w-5 h-5" />
-                  {isLoading ? "Menyimpan..." : "Simpan Signature"}
+                  {isLoading ? "Menyimpan..." : "Simpan Tanda Tangan"}
                 </button>
               </div>
             )}
@@ -555,12 +584,12 @@ export default function SignatureConfigPage() {
           {/* Right: Saved Signatures */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <h2 className="text-lg font-bold text-gray-900 mb-4">
-              Signature Tersimpan ({savedSignatures.length})
+              Tanda Tangan Tersimpan ({savedSignatures.length})
             </h2>
             <div className="space-y-3 max-h-[600px] overflow-y-auto">
               {savedSignatures.length === 0 ? (
                 <div className="text-center py-12">
-                  <p className="text-gray-500 text-sm">Belum ada signature tersimpan</p>
+                  <p className="text-gray-500 text-sm">Belum ada tanda tangan tersimpan</p>
                 </div>
               ) : (
                 savedSignatures.map((sig) => (
@@ -570,7 +599,7 @@ export default function SignatureConfigPage() {
                   >
                     <div className="flex-shrink-0 w-24 h-24 bg-white border border-gray-200 rounded flex items-center justify-center overflow-hidden">
                       <img
-                        src={sig.imageUrl}
+                        src={sig.thumbnailData}
                         alt={sig.name}
                         className="max-w-full max-h-full object-contain"
                       />
@@ -585,7 +614,10 @@ export default function SignatureConfigPage() {
                       </p>
                     </div>
                     <button
-                      onClick={() => handleDeleteSignature(sig.id)}
+                      onClick={() => {
+                        setSignatureToDelete(sig.id);
+                        setDeleteModalOpen(true);
+                      }}
                       className="flex-shrink-0 p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                       title="Hapus"
                     >

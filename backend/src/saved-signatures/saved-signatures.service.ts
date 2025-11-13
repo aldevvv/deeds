@@ -16,6 +16,9 @@ export class SavedSignaturesService {
     const buffer = Buffer.from(base64Data, 'base64');
     const mimeType = dto.imageData.match(/^data:(image\/\w+);base64,/)?.[1] || 'image/png';
 
+    // Create thumbnail (smaller version for display)
+    const thumbnailData = await this.createThumbnail(dto.imageData);
+
     // Upload to Supabase
     const { url, path } = await this.supabaseSignatures.uploadSignature(
       buffer,
@@ -23,17 +26,24 @@ export class SavedSignaturesService {
       mimeType,
     );
 
-    // Save to database
+    // Save to database with thumbnail
     const savedSignature = await this.prisma.savedSignature.create({
       data: {
         userId,
         name: dto.name,
         type: dto.type,
         imageUrl: url,
+        thumbnailData, // Store base64 thumbnail for reliable display
       },
     });
 
     return savedSignature;
+  }
+
+  private async createThumbnail(base64Image: string): Promise<string> {
+    // For now, just return the same image (already optimized from frontend)
+    // In production, you might want to resize it here
+    return base64Image;
   }
 
   async findAllByUser(userId: string) {

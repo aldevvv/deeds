@@ -557,7 +557,7 @@ export default function SignDocumentPage() {
                     >
                       <div className="w-full h-24 bg-white border border-gray-200 rounded flex items-center justify-center overflow-hidden">
                         <img
-                          src={sig.imageUrl}
+                          src={sig.thumbnailData}
                           alt={sig.name}
                           className="max-w-full max-h-full object-contain"
                         />
@@ -665,7 +665,7 @@ export default function SignDocumentPage() {
               </div>
             </div>
             <button
-              onClick={() => router.push('/dashboard/admin/signature-config')}
+              onClick={() => window.open('/dashboard/admin/signature-config', '_blank')}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center gap-2"
             >
               <FileSignature className="w-4 h-4" />
@@ -698,7 +698,7 @@ export default function SignDocumentPage() {
                 </h2>
                 <button
                   onClick={() => setShowImportModal(true)}
-                  className="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium flex items-center gap-1.5"
+                  className="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center gap-1.5"
                 >
                   <Upload className="w-3.5 h-3.5" />
                   Import

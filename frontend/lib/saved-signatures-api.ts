@@ -10,6 +10,7 @@ export interface SavedSignature {
   name: string;
   type: SignatureType;
   imageUrl: string;
+  thumbnailData: string;
   createdAt: string;
   updatedAt: string;
 }
