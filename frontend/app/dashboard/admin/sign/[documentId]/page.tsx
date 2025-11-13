@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { getToken } from "@/lib/auth";
 import { documentsApi } from "@/lib/documents-api";
+import { savedSignaturesApi, SavedSignature } from "@/lib/saved-signatures-api";
 
 const PDFSignatureViewer = dynamic(
   () => import("@/components/PDFSignatureViewer"),
@@ -33,6 +34,10 @@ export default function SignDocumentPage() {
   const [documentData, setDocumentData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+  
+  // Saved Signatures
+  const [savedSignatures, setSavedSignatures] = useState<SavedSignature[]>([]);
+  const [showImportModal, setShowImportModal] = useState(false);
 
   // Signature creation (temporary - untuk buat signature baru)
   const [signatureMethod, setSignatureMethod] = useState<SignatureMethod>("draw");
@@ -64,7 +69,17 @@ export default function SignDocumentPage() {
 
   useEffect(() => {
     fetchDocument();
+    fetchSavedSignatures();
   }, [documentId]);
+  
+  const fetchSavedSignatures = async () => {
+    try {
+      const signatures = await savedSignaturesApi.getAll();
+      setSavedSignatures(signatures);
+    } catch (error) {
+      console.error("Failed to fetch saved signatures:", error);
+    }
+  };
 
   const fetchDocument = async () => {
     try {
@@ -479,8 +494,88 @@ export default function SignDocumentPage() {
     );
   }
 
+  const handleImportSignature = async (signature: SavedSignature) => {
+    try {
+      // Fetch the image and convert to base64
+      const response = await fetch(signature.imageUrl);
+      const blob = await response.blob();
+      const reader = new FileReader();
+      
+      reader.onloadend = async () => {
+        const base64 = reader.result as string;
+        const optimized = await optimizeSignatureImage(base64);
+        setTempSignatureImage(optimized);
+        setShowImportModal(false);
+        toast.success(`Signature "${signature.name}" berhasil di-import!`);
+      };
+      
+      reader.readAsDataURL(blob);
+    } catch (error) {
+      toast.error("Gagal import signature");
+    }
+  };
+
   return (
     <>
+      {/* Modal for Import Signatures */}
+      {showImportModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] flex flex-col">
+            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-gray-900">
+                Import Tanda Tangan ({savedSignatures.length})
+              </h3>
+              <button
+                onClick={() => setShowImportModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-600" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6">
+              {savedSignatures.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-gray-500 mb-4">Belum ada signature tersimpan</p>
+                  <button
+                    onClick={() => {
+                      setShowImportModal(false);
+                      router.push("/dashboard/admin/signature-config");
+                    }}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                  >
+                    Buat Signature Baru
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-4">
+                  {savedSignatures.map((sig) => (
+                    <button
+                      key={sig.id}
+                      onClick={() => handleImportSignature(sig)}
+                      className="flex flex-col items-center gap-3 p-4 bg-gray-50 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all"
+                    >
+                      <div className="w-full h-24 bg-white border border-gray-200 rounded flex items-center justify-center overflow-hidden">
+                        <img
+                          src={sig.imageUrl}
+                          alt={sig.name}
+                          className="max-w-full max-h-full object-contain"
+                        />
+                      </div>
+                      <div className="text-center">
+                        <p className="text-sm font-medium text-gray-900">{sig.name}</p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {sig.type === "WRITE" ? "Tulis" : sig.type === "UPLOAD" ? "Upload" : "Ketik"}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    
       {/* Modal for placed signatures */}
       {showSignaturesModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -552,20 +647,29 @@ export default function SignDocumentPage() {
       <div className="h-screen flex flex-col bg-white">
         {/* Header */}
         <div className="bg-white border-b border-gray-200 px-6 py-4">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => window.close()}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              title="Tutup tab"
-            >
-              <X className="w-5 h-5 text-gray-600" />
-            </button>
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">
-                Tanda Tangani Dokumen
-              </h1>
-              <p className="text-sm text-gray-600 mt-1">{documentData.title}</p>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => window.close()}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                title="Tutup tab"
+              >
+                <X className="w-5 h-5 text-gray-600" />
+              </button>
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">
+                  Tanda Tangani Dokumen
+                </h1>
+                <p className="text-sm text-gray-600 mt-1">{documentData.title}</p>
+              </div>
             </div>
+            <button
+              onClick={() => router.push('/dashboard/admin/signature-config')}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center gap-2"
+            >
+              <FileSignature className="w-4 h-4" />
+              Konfigurasi Tanda Tangan
+            </button>
           </div>
         </div>
 
@@ -587,9 +691,18 @@ export default function SignDocumentPage() {
           {/* Right: Signature Creation Panel */}
           <div className="w-96 bg-white border-l border-gray-200 flex flex-col">
             <div className="p-6 border-b border-gray-200">
-              <h2 className="text-lg font-bold text-gray-900 mb-2">
-                Buat Tanda Tangan
-              </h2>
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-lg font-bold text-gray-900">
+                  Buat Tanda Tangan
+                </h2>
+                <button
+                  onClick={() => setShowImportModal(true)}
+                  className="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium flex items-center gap-1.5"
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  Import
+                </button>
+              </div>
               <p className="text-sm text-gray-600">
                 Pilih metode dan buat tanda tangan Anda
               </p>

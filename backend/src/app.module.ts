@@ -7,6 +7,7 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { DocumentsModule } from './documents/documents.module';
 import { R2Module } from './common/r2/r2.module';
+import { SavedSignaturesModule } from './saved-signatures/saved-signatures.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { R2Module } from './common/r2/r2.module';
     AuthModule,
     UsersModule,
     DocumentsModule,
+    SavedSignaturesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
