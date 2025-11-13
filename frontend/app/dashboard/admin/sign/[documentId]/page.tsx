@@ -422,17 +422,17 @@ export default function SignDocumentPage() {
 
       toast.success(`${placedSignatures.length} tanda tangan berhasil disimpan!`, { 
         id: loadingToast,
-        duration: 3000 
+        duration: 2000 
       });
       
-      // Wait a bit then redirect
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      router.push("/dashboard/admin/sign");
+      // Redirect to history page
+      setTimeout(() => {
+        router.push("/dashboard/admin/history");
+      }, 500);
       
     } catch (error: any) {
       console.error('[SIGN] Error:', error);
       toast.error(error.message || "Gagal menyimpan tanda tangan", { id: loadingToast });
-    } finally {
       setIsProcessing(false);
     }
   };
