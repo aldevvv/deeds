@@ -152,12 +152,9 @@ export default function SignDocumentPage() {
       duration: 3000
     });
     
-    // Clear temp signature for next one
-    setTempSignatureImage("");
+    // IMPORTANT: Don't clear tempSignatureImage so it can be reused for multiple placements
+    // Only clear the position to allow placing again
     setCurrentTempPosition(null);
-    if (sigCanvas.current) {
-      sigCanvas.current.clear();
-    }
   };
   
   // Remove signature from array
@@ -498,10 +495,13 @@ export default function SignDocumentPage() {
   const handleImportSignature = async (signature: SavedSignature) => {
     try {
       // Use thumbnailData directly (it's already base64)
-      const optimized = await optimizeSignatureImage(signature.thumbnailData);
-      setTempSignatureImage(optimized);
+      // IMPORTANT: Don't optimize - just use as-is so it can be reused multiple times
+      const signatureImage = signature.thumbnailData;
+      setTempSignatureImage(signatureImage);
       setShowImportModal(false);
-      toast.success(`Tanda tangan "${signature.name}" siap ditempatkan!`);
+      toast.success(`Tanda tangan "${signature.name}" siap ditempatkan! Bisa digunakan berkali-kali.`, {
+        duration: 3000
+      });
     } catch (error) {
       toast.error("Gagal import tanda tangan");
     }
